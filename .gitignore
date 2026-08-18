@@ -1,0 +1,30 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+
+# Security / vault
+vault.key
+digitalfactory_vault.json
+digitalfactory_vault.backup.json
+digitalfactory_emergency.json
+
+# Generated files
+generated_products/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
