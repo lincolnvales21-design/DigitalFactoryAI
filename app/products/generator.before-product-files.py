@@ -27,8 +27,7 @@ class ProductGenerator:
     def create_ebook(
         self,
         title: str,
-        research=None,
-        product_id=None
+        research=None
     ):
 
         ebook_path = self.base_path / "ebook"
@@ -336,10 +335,7 @@ A próxima etapa é colocar a oferta diante de potenciais compradores e observar
 
 """
 
-        if product_id is not None:
-            file = ebook_path / f"product_{product_id}.md"
-        else:
-            file = ebook_path / "ebook_final.md"
+        file = ebook_path / "ebook_final.md"
 
         file.write_text(
             content,

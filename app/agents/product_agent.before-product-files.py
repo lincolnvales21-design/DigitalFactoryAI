@@ -110,6 +110,16 @@ class ProductAgent(BaseAgent):
 
 
         # ==========================
+        # Gerar ebook
+        # ==========================
+
+        generated = product_generator.create_ebook(
+            title=title,
+            research=research
+        )
+
+
+        # ==========================
         # Registrar produto
         # ==========================
 
@@ -142,17 +152,6 @@ class ProductAgent(BaseAgent):
 
         connection.commit()
         connection.close()
-
-
-        # ==========================
-        # Gerar ebook específico
-        # ==========================
-
-        generated = product_generator.create_ebook(
-            title=title,
-            research=research,
-            product_id=product_id
-        )
 
 
         # ==========================

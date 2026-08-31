@@ -12,6 +12,7 @@ from app.api import orders
 from app.api import payments
 from app.api import delivery
 from app.api import finance
+from app.api import business
 
 from app.api.admin.security import router as security_router
 from app.api.admin.secret import router as secret_router
@@ -69,6 +70,7 @@ app.include_router(orders.router)
 app.include_router(payments.router)
 app.include_router(delivery.router)
 app.include_router(finance.router)
+app.include_router(business.router)
 
 # ==========================
 # Health Check

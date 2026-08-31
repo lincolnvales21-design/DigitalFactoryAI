@@ -7,7 +7,6 @@ from fastapi import APIRouter, Request
 
 from app.database.database import get_connection
 from app.payments.service import payment_service
-from app.delivery.service import delivery_service
 
 
 router = APIRouter(
@@ -534,14 +533,6 @@ async def mercadopago_webhook(request: Request):
             )
 
             connection.commit()
-
-            # --------------------------------------------------
-            # Entrega automática após pagamento aprovado
-            # --------------------------------------------------
-
-            delivery = delivery_service.deliver(
-                order_id
-            )
 
             return {
                 "status": "paid",
