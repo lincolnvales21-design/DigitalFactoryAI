@@ -1,0 +1,357 @@
+from pathlib import Path
+from datetime import datetime
+
+
+class ProductGenerator:
+
+    def __init__(self):
+
+        self.base_path = Path("generated_products")
+
+        self.base_path.mkdir(
+            exist_ok=True
+        )
+
+    def _get(self, research, key, default="Não informado"):
+
+        if not isinstance(research, dict):
+            return default
+
+        value = research.get(key)
+
+        if value is None or value == "":
+            return default
+
+        return str(value)
+
+    def create_ebook(
+        self,
+        title: str,
+        research=None,
+        product_id=None
+    ):
+
+        ebook_path = self.base_path / "ebook"
+
+        ebook_path.mkdir(
+            exist_ok=True
+        )
+
+        problem = self._get(
+            research,
+            "problem"
+        )
+
+        target_audience = self._get(
+            research,
+            "target_audience"
+        )
+
+        niche = self._get(
+            research,
+            "niche"
+        )
+
+        market_need = self._get(
+            research,
+            "market_need"
+        )
+
+        opportunity = self._get(
+            research,
+            "opportunity"
+        )
+
+        recommended_product = self._get(
+            research,
+            "recommended_product"
+        )
+
+        recommended_format = self._get(
+            research,
+            "recommended_format"
+        )
+
+        suggested_price = self._get(
+            research,
+            "suggested_price"
+        )
+
+        differential = self._get(
+            research,
+            "differential"
+        )
+
+        validation_strategy = self._get(
+            research,
+            "validation_strategy"
+        )
+
+        content = f"""# {title}
+
+## Guia Prático
+
+### Produto criado pelo DigitalFactoryAI
+
+Este guia foi criado automaticamente a partir de uma análise de oportunidade de mercado.
+
+O objetivo é transformar um problema identificado em uma solução prática, simples e aplicável.
+
+---
+
+# 1. O problema
+
+{problem}
+
+Este problema representa o ponto de partida para a construção da solução.
+
+Uma boa solução digital não precisa resolver todos os problemas de uma pessoa.
+
+Ela precisa resolver **um problema específico de forma clara e prática**.
+
+---
+
+# 2. Para quem este guia foi criado
+
+**Público-alvo:**
+
+{target_audience}
+
+Ao criar uma solução digital, é importante evitar tentar atender todo mundo.
+
+Quanto mais claro estiver o público, mais fácil será:
+
+- criar o conteúdo;
+- apresentar a oferta;
+- explicar os benefícios;
+- encontrar potenciais compradores;
+- validar a solução.
+
+---
+
+# 3. Nicho
+
+**Nicho identificado:**
+
+{niche}
+
+O nicho representa o contexto em que o problema e a solução estão inseridos.
+
+A partir dele é possível desenvolver produtos mais específicos e relevantes.
+
+---
+
+# 4. Necessidade do mercado
+
+{market_need}
+
+Uma oportunidade comercial normalmente aparece quando existe uma necessidade que pode ser atendida de maneira mais simples, prática ou conveniente.
+
+O objetivo deste produto é transformar essa necessidade em uma solução organizada.
+
+---
+
+# 5. A oportunidade
+
+{opportunity}
+
+A oportunidade identificada pode ser transformada em um produto digital de baixo custo de produção e fácil distribuição.
+
+Isso permite começar pequeno, validar a aceitação e melhorar o produto com base no comportamento dos compradores.
+
+---
+
+# 6. Produto recomendado
+
+**Produto:**
+
+{recommended_product}
+
+**Formato:**
+
+{recommended_format}
+
+O formato recomendado permite entregar informação de maneira organizada e facilitar a aplicação prática pelo comprador.
+
+---
+
+# 7. Como utilizar este guia
+
+Use este material seguindo três etapas:
+
+### Etapa 1 — Entender
+
+Identifique claramente o problema que você deseja resolver.
+
+### Etapa 2 — Aplicar
+
+Siga os passos apresentados neste guia e adapte-os à sua situação.
+
+### Etapa 3 — Avaliar
+
+Observe o resultado obtido e identifique o que precisa ser melhorado.
+
+---
+
+# 8. Plano de ação
+
+## Passo 1 — Defina o problema
+
+Escreva em uma frase qual problema precisa ser resolvido.
+
+**Meu problema é:**
+
+________________________________________
+
+---
+
+## Passo 2 — Defina o resultado
+
+Determine qual resultado você deseja alcançar.
+
+**Meu resultado desejado é:**
+
+________________________________________
+
+---
+
+## Passo 3 — Divida o objetivo
+
+Transforme o objetivo em pequenas ações.
+
+- [ ] Primeira ação
+- [ ] Segunda ação
+- [ ] Terceira ação
+- [ ] Quarta ação
+- [ ] Quinta ação
+
+---
+
+## Passo 4 — Execute
+
+Comece pela ação mais simples.
+
+Evite tentar resolver tudo de uma vez.
+
+A execução consistente é mais importante do que criar um plano excessivamente complexo.
+
+---
+
+## Passo 5 — Avalie
+
+Depois da execução, responda:
+
+**O que funcionou?**
+
+________________________________________
+
+**O que não funcionou?**
+
+________________________________________
+
+**O que precisa ser melhorado?**
+
+________________________________________
+
+---
+
+# 9. Checklist
+
+Antes de considerar o processo concluído:
+
+- [ ] O problema está claramente definido?
+- [ ] O público está identificado?
+- [ ] O resultado desejado está definido?
+- [ ] As ações foram divididas em etapas?
+- [ ] A primeira ação foi executada?
+- [ ] O resultado foi analisado?
+- [ ] Os pontos de melhoria foram identificados?
+
+---
+
+# 10. Diferencial da solução
+
+{differential}
+
+O diferencial deve estar relacionado à facilidade de utilização, clareza do conteúdo e capacidade de ajudar o comprador a alcançar um resultado específico.
+
+---
+
+# 11. Faixa de preço sugerida
+
+{suggested_price}
+
+**Importante:** esta é uma hipótese inicial de preço e deve ser validada com compradores reais.
+
+---
+
+# 12. Estratégia inicial de validação
+
+{validation_strategy}
+
+A validação deve acontecer antes de investir dinheiro em publicidade.
+
+Uma primeira etapa pode utilizar:
+
+- conteúdo orgânico;
+- redes sociais;
+- comunidades relevantes;
+- contatos diretos;
+- páginas de apresentação;
+- testes de oferta.
+
+O objetivo inicial é descobrir se pessoas reais demonstram interesse e estão dispostas a comprar.
+
+---
+
+# 13. Próximo passo comercial
+
+O caminho planejado pelo DigitalFactoryAI é:
+
+**pesquisar → criar → apresentar → vender → medir → melhorar**
+
+A primeira versão não precisa ser perfeita.
+
+Ela precisa ser suficientemente útil para ser testada com pessoas reais.
+
+Os resultados obtidos nas primeiras vendas poderão orientar as próximas versões do produto.
+
+---
+
+# Conclusão
+
+Uma oportunidade só se transforma em negócio quando uma pessoa real considera a solução útil o suficiente para pagar por ela.
+
+Este produto representa uma primeira versão criada pelo DigitalFactoryAI.
+
+A próxima etapa é colocar a oferta diante de potenciais compradores e observar os resultados.
+
+---
+
+## Informações do produto
+
+**Gerado por:** DigitalFactoryAI  
+**Tipo:** Ebook  
+**Data de geração:** {datetime.now().isoformat()}
+
+"""
+
+        if product_id is not None:
+            file = ebook_path / f"product_{product_id}.md"
+        else:
+            file = ebook_path / "ebook_final.md"
+
+        file.write_text(
+            content,
+            encoding="utf-8"
+        )
+
+        return {
+            "status": "created",
+            "type": "ebook",
+            "path": str(file),
+            "message": "Ebook comercial criado pelo ProductGenerator."
+        }
+
+
+product_generator = ProductGenerator()
