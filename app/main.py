@@ -1,8 +1,10 @@
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 
 load_dotenv()
 
 from fastapi import FastAPI
+from app.database.init_db import init_database
 from app.api import planner
 from app.api import agents
 from app.api import automation
@@ -27,10 +29,17 @@ from app.agents.router import AgentRouter
 # FastAPI
 # ==========================
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_database()
+    yield
+
+
 app = FastAPI(
     title="DigitalFactoryAI",
     description="AI Multi-Agent Automation Platform",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 

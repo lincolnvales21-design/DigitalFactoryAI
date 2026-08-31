@@ -66,6 +66,23 @@ def create_tables():
     )
 
     # ==========================
+    # Migração aditiva de Orders
+    # ==========================
+    cursor.execute("PRAGMA table_info(orders)")
+    order_columns = {
+        column[1]
+        for column in cursor.fetchall()
+    }
+
+    if "delivered_at" not in order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE orders
+            ADD COLUMN delivered_at TEXT
+            """
+        )
+
+    # ==========================
     # Payments
     # ==========================
 
@@ -85,6 +102,35 @@ def create_tables():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             paid_at TEXT,
             FOREIGN KEY (order_id) REFERENCES orders(id)
+        )
+        """
+    )
+
+    # ==========================
+    # Security Logs
+    # ==========================
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS security_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            reason TEXT,
+            status TEXT DEFAULT 'success',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    # ==========================
+    # Knowledge Base
+    # ==========================
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS knowledge (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent TEXT NOT NULL,
+            knowledge TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
