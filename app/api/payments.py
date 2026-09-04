@@ -1,9 +1,11 @@
 from datetime import datetime
+import hashlib
+import hmac
 import os
 
 import mercadopago
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from app.database.database import get_connection
 from app.payments.service import payment_service
@@ -41,7 +43,7 @@ def create_payment(order_id: int):
 
 
 # ==========================================================
-# CONFIRMAR PAGAMENTO - SIMULAÇÃO
+# VALIDAR CONFIRMAÇÃO DE PAGAMENTO
 # ==========================================================
 
 @router.post("/confirm/{order_id}")
@@ -81,115 +83,40 @@ def confirm_payment(order_id: int):
         payment = cursor.fetchone()
 
         if payment is None:
-
-            return {
-                "status": "error",
-                "message": "Pagamento não encontrado.",
-                "order_id": order_id
-            }
-
-        # --------------------------------------------------
-        # Já pago
-        # --------------------------------------------------
-
-        if payment[8] == "paid":
-
-            return {
-                "status": "already_paid",
-                "order_id": order_id,
-                "payment_id": payment[0]
-            }
-
-        # --------------------------------------------------
-        # Confirmar pagamento simulado
-        # --------------------------------------------------
-
-        paid_at = datetime.now().isoformat()
-
-        fee = payment[5] or round(
-            payment[4] * 0.05,
-            2
-        )
-
-        net_amount = round(
-            payment[4] - fee,
-            2
-        )
-
-        payment_method = (
-            payment[9]
-            or "simulated"
-        )
-
-        external_id = (
-            payment[3]
-            or f"CONFIRMED-{order_id}"
-        )
-
-        # --------------------------------------------------
-        # Atualizar payment
-        # --------------------------------------------------
-
-        cursor.execute(
-            """
-            UPDATE payments
-            SET
-                external_id = ?,
-                fee = ?,
-                net_amount = ?,
-                status = 'paid',
-                payment_method = ?,
-                paid_at = ?
-            WHERE id = ?
-            """,
-            (
-                external_id,
-                fee,
-                net_amount,
-                payment_method,
-                paid_at,
-                payment[0]
+            raise HTTPException(
+                status_code=404,
+                detail="Pagamento não encontrado."
             )
-        )
 
-        # --------------------------------------------------
-        # Atualizar order
-        # --------------------------------------------------
-
-        cursor.execute(
-            """
-            UPDATE orders
-            SET
-                status = 'paid',
-                gateway = ?,
-                external_id = ?,
-                paid_at = ?
-            WHERE id = ?
-            """,
-            (
-                payment[2],
-                external_id,
-                paid_at,
-                order_id
+        # Pagamentos de teste nunca confirmam pagamentos reais.
+        if payment[2] == "test" or payment[8] == "test_paid":
+            raise HTTPException(
+                status_code=409,
+                detail="Pagamento de teste não confirma pagamento real."
             )
-        )
 
-        connection.commit()
+        # O endpoint não cria confirmações; somente expõe uma confirmação
+        # que já foi registrada pelo gateway.
+        if payment[8] != "paid":
+            raise HTTPException(
+                status_code=409,
+                detail="A confirmação deve ser recebida pelo webhook do gateway."
+            )
 
         return {
-            "status": "paid",
+            "status": "already_confirmed",
             "order_id": order_id,
             "payment": {
                 "id": payment[0],
                 "gateway": payment[2],
-                "external_id": external_id,
+                "external_id": payment[3],
                 "amount": payment[4],
-                "fee": fee,
-                "net_amount": net_amount,
+                "fee": payment[5],
+                "net_amount": payment[6],
                 "currency": payment[7],
-                "status": "paid",
-                "payment_method": payment_method,
-                "paid_at": paid_at
+                "status": payment[8],
+                "payment_method": payment[9],
+                "paid_at": payment[10]
             }
         }
 
@@ -205,16 +132,83 @@ def confirm_payment(order_id: int):
 async def mercadopago_webhook(request: Request):
 
     # ------------------------------------------------------
+    # Validar assinatura do Mercado Pago
+    # ------------------------------------------------------
+
+    webhook_secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET")
+
+    if not webhook_secret:
+        return {
+            "status": "error",
+            "message": "MERCADOPAGO_WEBHOOK_SECRET não configurado."
+        }
+
+    x_signature = request.headers.get("x-signature")
+    x_request_id = request.headers.get("x-request-id")
+
+    if not x_signature or not x_request_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Assinatura do webhook não informada."
+        )
+
+    # Ler o corpo sem perder a requisição
+    body = await request.json()
+
+    payment_data = body.get("data", {})
+    payment_id = payment_data.get("id")
+
+    if not payment_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Payment ID não informado."
+        )
+
+    # Extrair ts e v1 do header:
+    # ts=...;v1=...
+    signature_parts = {}
+
+    for item in x_signature.split(","):
+        if "=" in item:
+            key, value = item.split("=", 1)
+            signature_parts[key.strip()] = value.strip()
+
+    timestamp = signature_parts.get("ts")
+    received_signature = signature_parts.get("v1")
+
+    if not timestamp or not received_signature:
+        raise HTTPException(
+            status_code=401,
+            detail="Assinatura do webhook inválida."
+        )
+
+    # Manifest oficial do Mercado Pago
+    manifest = (
+        f"id:{payment_id};"
+        f"request-id:{x_request_id};"
+        f"ts:{timestamp};"
+    )
+
+    calculated_signature = hmac.new(
+        webhook_secret.encode(),
+        manifest.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(
+        calculated_signature,
+        received_signature
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Assinatura do webhook inválida."
+        )
+
+    # ------------------------------------------------------
     # Receber evento
     # ------------------------------------------------------
 
-    try:
-        data = await request.json()
-    except Exception:
-        return {
-            "status": "error",
-            "message": "JSON inválido."
-        }
+    data = body
 
     # ------------------------------------------------------
     # Identificar evento
@@ -337,27 +331,45 @@ async def mercadopago_webhook(request: Request):
             SELECT
                 id,
                 order_id,
+                gateway,
                 status
             FROM payments
             WHERE external_id = ?
-            LIMIT 1
+            ORDER BY id DESC
             """,
             (
                 str(payment_id),
             )
         )
 
-        processed_payment = cursor.fetchone()
+        processed_payments = cursor.fetchall()
 
-        if (
-            processed_payment is not None
-            and processed_payment[2] == "paid"
-        ):
+        if any(row[1] != order_id for row in processed_payments):
+            return {
+                "status": "error",
+                "message": "Pagamento associado a outro pedido.",
+                "payment_id": str(payment_id)
+            }
+
+        processed_payment = next(
+            (
+                row
+                for row in processed_payments
+                if row[2] == "mercadopago"
+            ),
+            None
+        )
+
+        if processed_payment is not None and processed_payment[3] == "paid":
+            delivery = delivery_service.deliver(
+                order_id
+            )
 
             return {
                 "status": "already_processed",
-                "order_id": processed_payment[1],
-                "payment_id": str(payment_id)
+                "order_id": order_id,
+                "payment_id": str(payment_id),
+                "delivery": delivery
             }
 
         # --------------------------------------------------
@@ -380,15 +392,38 @@ async def mercadopago_webhook(request: Request):
                 paid_at
             FROM payments
             WHERE order_id = ?
+              AND gateway = 'mercadopago'
+              AND status IN ('pending', 'in_process', 'authorized')
             ORDER BY id DESC
-            LIMIT 1
             """,
             (
                 order_id,
             )
         )
 
-        local_payment = cursor.fetchone()
+        pending_payments = cursor.fetchall()
+
+        if processed_payment is not None:
+            local_payment = next(
+                (
+                    row
+                    for row in pending_payments
+                    if row[0] == processed_payment[0]
+                ),
+                None
+            )
+        elif len(pending_payments) == 1:
+            local_payment = pending_payments[0]
+        else:
+            local_payment = None
+
+        if len(pending_payments) > 1 and processed_payment is None:
+            return {
+                "status": "error",
+                "message": "Mais de uma tentativa de pagamento pendente; associação ambígua.",
+                "order_id": order_id,
+                "payment_id": str(payment_id)
+            }
 
         if local_payment is None:
 
@@ -407,12 +442,27 @@ async def mercadopago_webhook(request: Request):
 
             paid_at = datetime.now().isoformat()
 
-            transaction_amount = (
-                payment.get(
-                    "transaction_amount"
-                )
-                or local_payment[4]
+            transaction_amount = payment.get(
+                "transaction_amount"
             )
+            provider_currency = payment.get(
+                "currency_id"
+            )
+
+            if (
+                transaction_amount is None
+                or provider_currency is None
+                or round(float(transaction_amount), 2)
+                != round(float(local_payment[4]), 2)
+                or str(provider_currency).upper()
+                != str(local_payment[7]).upper()
+            ):
+                return {
+                    "status": "error",
+                    "message": "Valor ou moeda do pagamento não correspondem ao pedido.",
+                    "order_id": order_id,
+                    "payment_id": str(payment_id)
+                }
 
             # --------------------------------------------------
             # Taxa REAL retornada pelo Mercado Pago
@@ -500,6 +550,7 @@ async def mercadopago_webhook(request: Request):
                     payment_method = ?,
                     paid_at = ?
                 WHERE id = ?
+                  AND status != 'paid'
                 """,
                 (
                     str(payment_id),
@@ -511,6 +562,15 @@ async def mercadopago_webhook(request: Request):
                     local_payment[0]
                 )
             )
+
+            if cursor.rowcount != 1:
+                connection.rollback()
+
+                return {
+                    "status": "already_processed",
+                    "order_id": order_id,
+                    "payment_id": str(payment_id)
+                }
 
             # --------------------------------------------------
             # Atualizar order
@@ -550,9 +610,8 @@ async def mercadopago_webhook(request: Request):
                 "amount": transaction_amount,
                 "fee": fee,
                 "net_amount": net_amount,
-                "currency": payment.get(
-                    "currency_id"
-                )
+                "currency": provider_currency,
+                "delivery": delivery
             }
 
         # --------------------------------------------------

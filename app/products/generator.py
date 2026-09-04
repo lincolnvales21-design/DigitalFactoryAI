@@ -1,5 +1,19 @@
 from pathlib import Path
 from datetime import datetime
+from html import escape
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    PageBreak,
+)
+
+from app.design.generator import design_generator
+from app.design.mockup import mockup_generator
 
 
 class ProductGenerator:
@@ -9,10 +23,16 @@ class ProductGenerator:
         self.base_path = Path("generated_products")
 
         self.base_path.mkdir(
+            parents=True,
             exist_ok=True
         )
 
-    def _get(self, research, key, default="Não informado"):
+    def _get(
+        self,
+        research,
+        key,
+        default="Não informado"
+    ):
 
         if not isinstance(research, dict):
             return default
@@ -24,6 +44,218 @@ class ProductGenerator:
 
         return str(value)
 
+    # --------------------------------------------------
+    # ESTILOS DO PDF
+    # --------------------------------------------------
+
+    def _pdf_title_style(self):
+
+        return ParagraphStyle(
+            "PDFTitle",
+            fontSize=22,
+            leading=27,
+            alignment=TA_CENTER,
+            spaceAfter=18
+        )
+
+    def _pdf_heading_style(self):
+
+        return ParagraphStyle(
+            "PDFHeading",
+            fontSize=15,
+            leading=19,
+            spaceBefore=14,
+            spaceAfter=9
+        )
+
+    def _pdf_body_style(self):
+
+        return ParagraphStyle(
+            "PDFBody",
+            fontSize=10.5,
+            leading=15,
+            spaceAfter=7
+        )
+
+    # --------------------------------------------------
+    # GERAÇÃO DO PDF
+    # --------------------------------------------------
+
+    def _generate_pdf(
+        self,
+        content,
+        pdf_file
+    ):
+
+        doc = SimpleDocTemplate(
+            str(pdf_file),
+            pagesize=A4,
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=50,
+            bottomMargin=50
+        )
+
+        story = []
+
+        for line in content.splitlines():
+
+            line = line.strip()
+
+            if not line:
+
+                story.append(
+                    Spacer(1, 8)
+                )
+
+                continue
+
+            # ------------------------------------------
+            # TÍTULO
+            # ------------------------------------------
+
+            if line.startswith("# "):
+
+                text = escape(
+                    line[2:]
+                )
+
+                story.append(
+                    Paragraph(
+                        text,
+                        self._pdf_title_style()
+                    )
+                )
+
+                continue
+
+            # ------------------------------------------
+            # SUBTÍTULO
+            # ------------------------------------------
+
+            if line.startswith("## "):
+
+                text = escape(
+                    line[3:]
+                )
+
+                story.append(
+                    Paragraph(
+                        text,
+                        self._pdf_heading_style()
+                    )
+                )
+
+                continue
+
+            # ------------------------------------------
+            # SEÇÃO
+            # ------------------------------------------
+
+            if line.startswith("### "):
+
+                text = escape(
+                    line[4:]
+                )
+
+                story.append(
+                    Paragraph(
+                        text,
+                        self._pdf_heading_style()
+                    )
+                )
+
+                continue
+
+            # ------------------------------------------
+            # SEPARADOR
+            # ------------------------------------------
+
+            if line == "---":
+
+                story.append(
+                    Spacer(1, 15)
+                )
+
+                continue
+
+            # ------------------------------------------
+            # LISTAS
+            # ------------------------------------------
+
+            if line.startswith("- "):
+
+                text = escape(
+                    line[2:]
+                )
+
+                story.append(
+                    Paragraph(
+                        "• " + text,
+                        self._pdf_body_style()
+                    )
+                )
+
+                continue
+
+            # ------------------------------------------
+            # CHECKLIST
+            # ------------------------------------------
+
+            if line.startswith("- [ ]"):
+
+                text = escape(
+                    line[5:].strip()
+                )
+
+                story.append(
+                    Paragraph(
+                        "☐ " + text,
+                        self._pdf_body_style()
+                    )
+                )
+
+                continue
+
+            # ------------------------------------------
+            # NEGRITO SIMPLES
+            # ------------------------------------------
+
+            text = escape(
+                line
+            )
+
+            text = text.replace(
+                "**",
+                "<b>",
+                1
+            ) if "**" in text else text
+
+            if "<b>" in text:
+
+                text = text.replace(
+                    "**",
+                    "</b>",
+                    1
+                )
+
+            story.append(
+                Paragraph(
+                    text,
+                    self._pdf_body_style()
+                )
+            )
+
+        doc.build(
+            story
+        )
+
+        return pdf_file
+
+    # --------------------------------------------------
+    # CRIAÇÃO DO EBOOK
+    # --------------------------------------------------
+
     def create_ebook(
         self,
         title: str,
@@ -31,11 +263,19 @@ class ProductGenerator:
         product_id=None
     ):
 
-        ebook_path = self.base_path / "ebook"
+        ebook_path = (
+            self.base_path /
+            "ebook"
+        )
 
         ebook_path.mkdir(
+            parents=True,
             exist_ok=True
         )
+
+        # ------------------------------------------
+        # DADOS DA PESQUISA
+        # ------------------------------------------
 
         problem = self._get(
             research,
@@ -86,6 +326,10 @@ class ProductGenerator:
             research,
             "validation_strategy"
         )
+
+        # ------------------------------------------
+        # CONTEÚDO
+        # ------------------------------------------
 
         content = f"""# {title}
 
@@ -334,24 +578,114 @@ A próxima etapa é colocar a oferta diante de potenciais compradores e observar
 **Tipo:** Ebook  
 **Data de geração:** {datetime.now().isoformat()}
 
+**Nome:** {title}
+
+**Público-alvo:** {target_audience}
+
+**Preço inicial:** {suggested_price}
+
+**Moeda:** BRL
+
+**Formato:** Ebook digital
+
+**Objetivo:** Ajudar pequenos negócios a criar um processo simples de vendas online e buscar suas primeiras vendas.
+
+**Estratégia:** Começar pequeno, validar a oferta com clientes reais e melhorar o produto com base nos resultados.
 """
 
-        if product_id is not None:
-            file = ebook_path / f"product_{product_id}.md"
-        else:
-            file = ebook_path / "ebook_final.md"
+        # ------------------------------------------
+        # NOME DOS ARQUIVOS
+        # ------------------------------------------
 
-        file.write_text(
+        if product_id is not None:
+
+            md_file = (
+                ebook_path /
+                f"product_{product_id}.md"
+            )
+
+            pdf_file = (
+                ebook_path /
+                f"product_{product_id}.pdf"
+            )
+
+        else:
+
+            md_file = (
+                ebook_path /
+                "ebook_final.md"
+            )
+
+            pdf_file = (
+                ebook_path /
+                "ebook_final.pdf"
+            )
+
+        # ------------------------------------------
+        # SALVAR MARKDOWN
+        # ------------------------------------------
+
+        md_file.write_text(
             content,
             encoding="utf-8"
         )
 
-        return {
+        # ------------------------------------------
+        # GERAR PDF
+        # ------------------------------------------
+
+        self._generate_pdf(
+            content,
+            pdf_file
+        )
+
+        # ------------------------------------------
+        # GERAR CAPA
+        # ------------------------------------------
+
+        cover_result = design_generator.create_cover(
+            title=title,
+            subtitle="Guia Prático para Pequenos Negócios",
+            product_id=product_id
+        )
+
+        # ------------------------------------------
+        # GERAR MOCKUP
+        # ------------------------------------------
+
+        mockup_result = None
+
+        if product_id is not None:
+
+            mockup_result = (
+                mockup_generator.create_ebook_mockup(
+                    product_id
+                )
+            )
+
+        # ------------------------------------------
+        # RESULTADO
+        # ------------------------------------------
+
+        result = {
             "status": "created",
             "type": "ebook",
-            "path": str(file),
-            "message": "Ebook comercial criado pelo ProductGenerator."
+            "path": str(md_file),
+            "pdf_path": str(pdf_file),
+            "cover_path": cover_result["path"],
+            "message": (
+                "Ebook comercial, PDF e materiais "
+                "visuais criados automaticamente."
+            )
         }
+
+        if mockup_result:
+
+            result["mockup_path"] = (
+                mockup_result["path"]
+            )
+
+        return result
 
 
 product_generator = ProductGenerator()

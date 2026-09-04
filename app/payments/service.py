@@ -70,8 +70,16 @@ class PaymentService:
             currency=order[4]
         )
 
+        # Pagamentos de teste não confirmam pagamentos reais.
+        # Mantemos um status separado para impedir que o registro
+        # seja usado pelo fluxo de confirmação ou entrega.
+        test_payment = {
+            **payment,
+            "status": "test_paid"
+        }
+
         # ==========================
-        # Registrar pagamento
+        # Registrar pagamento de teste
         # ==========================
 
         cursor.execute(
@@ -92,41 +100,19 @@ class PaymentService:
             """,
             (
                 order_id,
-                payment["gateway"],
-                payment["external_id"],
-                payment["amount"],
-                payment["fee"],
-                payment["net_amount"],
-                payment["currency"],
-                payment["status"],
-                payment["payment_method"],
-                payment["paid_at"]
+                test_payment["gateway"],
+                test_payment["external_id"],
+                test_payment["amount"],
+                test_payment["fee"],
+                test_payment["net_amount"],
+                test_payment["currency"],
+                test_payment["status"],
+                test_payment["payment_method"],
+                test_payment["paid_at"]
             )
         )
 
         payment_id = cursor.lastrowid
-
-        # ==========================
-        # Atualizar pedido
-        # ==========================
-
-        cursor.execute(
-            """
-            UPDATE orders
-            SET
-                status = 'paid',
-                gateway = ?,
-                external_id = ?,
-                paid_at = ?
-            WHERE id = ?
-            """,
-            (
-                payment["gateway"],
-                payment["external_id"],
-                payment["paid_at"],
-                order_id
-            )
-        )
 
         connection.commit()
         connection.close()
@@ -136,19 +122,19 @@ class PaymentService:
         # ==========================
 
         return {
-            "status": "paid",
+            "status": "test_paid",
             "payment": {
                 "id": payment_id,
                 "order_id": order_id,
-                "gateway": payment["gateway"],
-                "external_id": payment["external_id"],
-                "amount": payment["amount"],
-                "fee": payment["fee"],
-                "net_amount": payment["net_amount"],
-                "currency": payment["currency"],
-                "status": payment["status"],
-                "payment_method": payment["payment_method"],
-                "paid_at": payment["paid_at"]
+                "gateway": test_payment["gateway"],
+                "external_id": test_payment["external_id"],
+                "amount": test_payment["amount"],
+                "fee": test_payment["fee"],
+                "net_amount": test_payment["net_amount"],
+                "currency": test_payment["currency"],
+                "status": test_payment["status"],
+                "payment_method": test_payment["payment_method"],
+                "paid_at": test_payment["paid_at"]
             }
         }
 

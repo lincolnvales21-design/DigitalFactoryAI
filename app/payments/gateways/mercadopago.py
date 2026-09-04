@@ -33,7 +33,8 @@ class MercadoPagoGateway(PaymentGateway):
                 SELECT
                     p.name,
                     p.description,
-                    o.customer_email
+                    o.customer_email,
+                    o.download_token
                 FROM orders o
                 JOIN products p
                     ON p.id = o.product_id
@@ -55,9 +56,31 @@ class MercadoPagoGateway(PaymentGateway):
         product_name = product[0]
         product_description = product[1]
         customer_email = product[2]
+        download_token = product[3]
+
+        if not download_token:
+            raise ValueError(
+                f"Pedido {order_id} não possui token de download."
+            )
 
         sdk = mercadopago.SDK(
             access_token
+        )
+
+        domain = os.getenv(
+            "REPLIT_DEV_DOMAIN"
+        )
+
+        if not domain:
+            raise RuntimeError(
+                "REPLIT_DEV_DOMAIN não configurado."
+            )
+
+        base_url = f"https://{domain}"
+
+        success_url = (
+            f"{base_url}/delivery/download/"
+            f"{order_id}?token={download_token}"
         )
 
         preference_data = {
@@ -70,7 +93,19 @@ class MercadoPagoGateway(PaymentGateway):
                     "unit_price": float(amount)
                 }
             ],
-            "external_reference": str(order_id)
+            "external_reference": str(order_id),
+            "back_urls": {
+                "success": success_url,
+                "failure": (
+                    f"{base_url}/delivery/payment-failure/"
+                    f"{order_id}"
+                ),
+                "pending": (
+                    f"{base_url}/delivery/payment-pending/"
+                    f"{order_id}"
+                )
+            },
+            "auto_return": "approved"
         }
 
         if customer_email:
@@ -104,3 +139,6 @@ class MercadoPagoGateway(PaymentGateway):
                 "init_point"
             )
         }
+
+
+mercadopago_gateway = MercadoPagoGateway()

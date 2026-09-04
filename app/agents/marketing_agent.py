@@ -2,6 +2,14 @@ from app.agents.base import BaseAgent
 from app.memory.agent_memory import memory
 from app.knowledge.knowledge_base import knowledge
 
+from app.business.offer_engine import (
+    offer_engine
+)
+
+from app.business.sales_engine import (
+    sales_engine
+)
+
 
 class MarketingAgent(BaseAgent):
 
@@ -14,23 +22,33 @@ class MarketingAgent(BaseAgent):
         self.add_capability("sales_page")
         self.add_capability("campaign_creation")
 
-
     async def execute_task(self, task: str):
 
-        # ==========================================
-        # Contexto do produto
-        # ==========================================
+        # =====================================================
+        # 1. CONTEXTO DO PRODUTO
+        # =====================================================
 
         product_context = memory.get_latest_result(
             "ProductAgent"
         )
 
+        if not product_context:
+
+            return {
+                "status": "error",
+                "agent": self.name,
+                "task": task,
+                "message": (
+                    "Nenhum produto do ProductAgent "
+                    "foi encontrado."
+                ),
+            }
+
         knowledge_context = knowledge.latest()
 
-
-        # ==========================================
-        # Extrair produto
-        # ==========================================
+        # =====================================================
+        # 2. EXTRAIR PRODUTO
+        # =====================================================
 
         product = {}
 
@@ -53,8 +71,26 @@ class MarketingAgent(BaseAgent):
                     {}
                 )
 
+        if not isinstance(product, dict):
 
-        product_id = product.get("id")
+            product = {}
+
+        product_id = product.get(
+            "id"
+        )
+
+        if not product_id:
+
+            return {
+                "status": "error",
+                "agent": self.name,
+                "task": task,
+                "message": (
+                    "Produto encontrado, mas sem "
+                    "product_id válido."
+                ),
+            }
+
         product_name = product.get(
             "name",
             "Produto Digital"
@@ -62,121 +98,306 @@ class MarketingAgent(BaseAgent):
 
         product_type = product.get(
             "type",
-            "ebook"
+            product.get(
+                "product_type",
+                "digital_product"
+            )
         )
 
         price = product.get(
-            "price",
-            19.90
+            "price"
         )
 
         currency = product.get(
             "currency",
-            "USD"
+            "BRL"
         )
 
+        # =====================================================
+        # 3. PESQUISA DISPONÍVEL
+        # =====================================================
 
-        # ==========================================
-        # Oferta comercial
-        # ==========================================
+        research_context = memory.get_latest_result(
+            "ResearchAgent"
+        )
 
-        offer = {
+        research = {}
 
-            "product_id": product_id,
+        if isinstance(research_context, dict):
 
-            "product_name": product_name,
+            research = research_context.get(
+                "research",
+                research_context
+            )
+
+        if not isinstance(research, dict):
+
+            research = {}
+
+        # =====================================================
+        # 4. NOVIDADE / DIFERENCIAÇÃO
+        # =====================================================
+
+        novelty = {}
+
+        if isinstance(product_context, dict):
+
+            product_definition = (
+                product_context.get(
+                    "product_definition",
+                    {}
+                )
+            )
+
+            if isinstance(
+                product_definition,
+                dict
+            ):
+
+                novelty = product_definition
+
+        # =====================================================
+        # 5. PREPARAR PRODUTO PARA O OFFER ENGINE
+        # =====================================================
+
+        # O ProductAgent já recebeu o Radar e consolidou
+        # o contexto comercial. Ele é a fonte principal.
+        if isinstance(
+            novelty,
+            dict,
+        ):
+
+            research = {
+                **research,
+                **{
+                    key: value
+                    for key, value in novelty.items()
+                    if value not in (None, "")
+                },
+            }
+
+        # =====================================================
+        # CONTEXTO COMERCIAL CANÔNICO
+        # =====================================================
+
+        offer_product = {
+
+            "id": product_id,
+
+            "title": product_name,
+
+            "name": product_name,
+
+            "description": product.get(
+                "description",
+                ""
+            ),
 
             "product_type": product_type,
-
-            "target_audience":
-                "Pessoas que querem resolver um problema específico "
-                "de forma prática através de um produto digital simples.",
-
-            "headline":
-                f"Aprenda uma forma simples e prática de resolver "
-                f"seu problema com {product_name}.",
-
-            "promise":
-                "Um guia objetivo, prático e fácil de aplicar, "
-                "sem excesso de teoria.",
-
-            "problem":
-                "O cliente precisa de uma solução clara e prática "
-                "sem precisar gastar muito tempo procurando informações.",
-
-            "solution":
-                "Um material digital estruturado com orientação passo "
-                "a passo, checklist e plano de ação.",
-
-            "benefits": [
-
-                "Conteúdo direto ao ponto",
-
-                "Aplicação prática",
-
-                "Checklist para execução",
-
-                "Plano de ação",
-
-                "Acesso imediato ao produto digital"
-
-            ],
 
             "price": price,
 
             "currency": currency,
 
-            "international_price":
-                "US$ 19,90",
+            # Contexto específico vindo do Radar/ProductAgent
+            "area": (
+                novelty.get("area")
+                or product.get("area")
+                or research.get("area")
+                or ""
+            ),
 
-            "brazil_price":
-                "R$ 49,90",
+            "problem": (
+                novelty.get("problem")
+                or product.get("problem")
+                or research.get("problem")
+                or ""
+            ),
 
-            "sales_copy":
-                f"Conheça {product_name}, um material digital criado "
-                f"para ajudar você a transformar conhecimento em "
-                f"ação de maneira simples e prática.",
+            "target_audience": (
+                novelty.get("target_audience")
+                or product.get("target_audience")
+                or research.get("target_audience")
+                or ""
+            ),
 
-            "call_to_action":
-                "Começar agora",
+            "market": (
+                novelty.get("market")
+                or product.get("market")
+                or research.get("market")
+                or ""
+            ),
 
-            "validation_strategy":
-                "Divulgar inicialmente através de tráfego orgânico, "
-                "redes sociais e contatos diretos. Medir cliques, "
-                "interesse e vendas antes de investir em anúncios."
+            "product_angle": research.get(
+                "product_angle",
+                ""
+            ),
+
+            "differentiation_strategy": research.get(
+                "differentiation_strategy",
+                ""
+            ),
+
+            "unique_mechanism": research.get(
+                "unique_mechanism",
+                ""
+            ),
+
+            "commercial_thesis": research.get(
+                "commercial_thesis",
+                ""
+            ),
+
+            "recommended_format": research.get(
+                "recommended_format",
+                product_type
+            ),
 
         }
 
+        # =====================================================
+        # 6. CRIAR OFERTA COM OFFER ENGINE
+        # =====================================================
 
-        # ==========================================
-        # Resultado
-        # ==========================================
+        offer = await offer_engine.create_offer(
+            product=offer_product,
+            research=research,
+            novelty=novelty,
+        )
+
+        if not isinstance(
+            offer,
+            dict
+        ):
+
+            return {
+                "status": "failed",
+                "agent": self.name,
+                "task": task,
+                "product_id": product_id,
+                "message": (
+                    "Offer Engine não retornou "
+                    "uma oferta válida."
+                ),
+            }
+
+        # =====================================================
+        # 7. PUBLICAR ATRAVÉS DO SALES ENGINE
+        # =====================================================
+
+        publication = sales_engine.publish(
+            product_id=product_id,
+            offer=offer,
+        )
+
+        # =====================================================
+        # 8. PÁGINA DE VENDAS
+        # =====================================================
+
+        sales_page = sales_engine.sales_page(
+            product_id=product_id
+        )
+
+        # =====================================================
+        # 9. CHECKOUT
+        # =====================================================
+
+        checkout = sales_engine.checkout_info(
+            product_id=product_id
+        )
+
+        # =====================================================
+        # 10. RESULTADO
+        # =====================================================
+
+        publication_status = (
+            publication.get(
+                "status"
+            )
+            if isinstance(
+                publication,
+                dict
+            )
+            else None
+        )
+
+        if publication_status == "published":
+
+            status = "success"
+
+            message = (
+                "Oferta criada pelo Offer Engine, "
+                "aprovada pelo Sales Engine e "
+                "produto preparado para venda."
+            )
+
+        elif publication_status == "blocked":
+
+            status = "blocked"
+
+            message = (
+                "Oferta criada, mas bloqueada "
+                "pelo quality gate comercial."
+            )
+
+        else:
+
+            status = "failed"
+
+            message = (
+                "A oferta foi criada, mas o "
+                "produto não foi publicado."
+            )
 
         result = {
 
-            "status": "success",
+            "status": status,
 
             "agent": self.name,
 
             "task": task,
 
-            "product": product,
+            "product": {
+
+                "id": product_id,
+
+                "name": product_name,
+
+                "type": product_type,
+
+                "price": price,
+
+                "currency": currency,
+
+            },
 
             "offer": offer,
 
-            "product_memory_used": product_context,
+            "publication": publication,
 
-            "knowledge_used": knowledge_context,
+            "sales_page": sales_page,
 
-            "message":
-                "Oferta comercial criada com sucesso."
+            "checkout": checkout,
+
+            "product_memory_used": (
+                product_context
+            ),
+
+            "research_memory_used": (
+                research_context
+            ),
+
+            "knowledge_used": (
+                knowledge_context
+            ),
+
+            "message": message,
 
         }
 
-
-        # ==========================================
-        # Memória
-        # ==========================================
+        # =====================================================
+        # 11. MEMÓRIA
+        # =====================================================
 
         memory.save(
 
@@ -184,16 +405,15 @@ class MarketingAgent(BaseAgent):
 
             task=task,
 
-            status="completed",
+            status=status,
 
             result=result
 
         )
 
-
-        # ==========================================
-        # Conhecimento
-        # ==========================================
+        # =====================================================
+        # 12. CONHECIMENTO
+        # =====================================================
 
         knowledge.add(
 
@@ -207,11 +427,15 @@ class MarketingAgent(BaseAgent):
 
                 "product_name": product_name,
 
-                "offer": offer
+                "offer": offer,
+
+                "publication": publication,
 
             }
 
         )
 
-
         return result
+
+
+marketing_agent = MarketingAgent()

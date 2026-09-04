@@ -39,7 +39,7 @@ class BusinessEngine:
             Role.OWNER,
             "execute_agents",
             "ProductAgent",
-            objective
+            "Criar o primeiro produto digital comercial usando a pesquisa realizada."
         )
 
         if product.get("status") != "success":

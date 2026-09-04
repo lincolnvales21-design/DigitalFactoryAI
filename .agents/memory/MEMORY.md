@@ -1,1 +1,2 @@
 - [Imported Python dependency checks](imported-python-dependencies.md) — validate the application import before configuring its long-running workflow.
+- [Workflow port restarts](workflow-port-restarts.md) — a failed restart can leave an orphan Uvicorn process holding port 5000; inspect before retrying.

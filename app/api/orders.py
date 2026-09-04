@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr
 
@@ -65,6 +67,12 @@ def create_order(data: OrderRequest):
         )
 
     # ==========================
+    # Gerar token exclusivo
+    # ==========================
+
+    download_token = secrets.token_urlsafe(32)
+
+    # ==========================
     # Criar pedido
     # ==========================
 
@@ -75,16 +83,18 @@ def create_order(data: OrderRequest):
             customer_email,
             amount,
             currency,
-            status
+            status,
+            download_token
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         (
             product[0],
             data.customer_email,
             product[2],
             product[3],
-            "pending"
+            "pending",
+            download_token
         )
     )
 

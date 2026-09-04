@@ -21,9 +21,10 @@ def finance_summary():
 
     cursor.execute(
         """
-        SELECT COUNT(*)
-        FROM orders
+        SELECT COUNT(DISTINCT order_id)
+        FROM payments
         WHERE status = 'paid'
+          AND gateway != 'test'
         """
     )
 
@@ -36,15 +37,25 @@ def finance_summary():
     cursor.execute(
         """
         SELECT
-            currency,
+            p.currency,
             COUNT(*),
-            COALESCE(SUM(amount), 0),
-            COALESCE(SUM(fee), 0),
-            COALESCE(SUM(net_amount), 0)
-        FROM payments
-        WHERE status = 'paid'
-        GROUP BY currency
-        ORDER BY currency
+            COALESCE(SUM(p.amount), 0),
+            COALESCE(SUM(p.fee), 0),
+            COALESCE(SUM(p.net_amount), 0)
+        FROM payments p
+        WHERE p.status = 'paid'
+          AND p.gateway != 'test'
+          AND p.id = (
+              SELECT p2.id
+              FROM payments p2
+              WHERE p2.order_id = p.order_id
+                AND p2.status = 'paid'
+                AND p2.gateway != 'test'
+              ORDER BY p2.id DESC
+              LIMIT 1
+          )
+        GROUP BY p.currency
+        ORDER BY p.currency
         """
     )
 

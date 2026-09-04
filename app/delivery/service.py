@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 
 from app.database.database import get_connection
+from app.products.generator import product_generator
 
 
 class DeliveryService:
@@ -10,10 +11,6 @@ class DeliveryService:
 
         connection = get_connection()
         cursor = connection.cursor()
-
-        # ==========================
-        # Buscar pedido
-        # ==========================
 
         cursor.execute(
             """
@@ -43,10 +40,6 @@ class DeliveryService:
                 "message": "Pedido não encontrado."
             }
 
-        # ==========================
-        # Verificar pagamento
-        # ==========================
-
         if order[3] != "paid":
             connection.close()
 
@@ -55,9 +48,28 @@ class DeliveryService:
                 "message": "Pedido ainda não foi pago."
             }
 
-        # ==========================
-        # Verificar entrega anterior
-        # ==========================
+        cursor.execute(
+            """
+            SELECT id
+            FROM payments
+            WHERE order_id = ?
+              AND status = 'paid'
+              AND gateway != 'test'
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (order_id,)
+        )
+
+        confirmed_payment = cursor.fetchone()
+
+        if confirmed_payment is None:
+            connection.close()
+
+            return {
+                "status": "error",
+                "message": "Pagamento do gateway ainda não foi confirmado."
+            }
 
         if order[4] is not None:
             connection.close()
@@ -71,17 +83,7 @@ class DeliveryService:
                 }
             }
 
-        # ==========================
-        # Localizar arquivo
-        # ==========================
-
-        if order[6] == "ebook":
-
-            file_path = Path(
-                "generated_products/ebook/ebook_final.md"
-            )
-
-        else:
+        if order[6] != "ebook":
             connection.close()
 
             return {
@@ -89,21 +91,45 @@ class DeliveryService:
                 "message": "Tipo de produto não suportado."
             }
 
-        # ==========================
-        # Verificar arquivo
-        # ==========================
+        ebook_path = Path("generated_products/ebook")
 
-        if not file_path.exists():
+        md_file = ebook_path / f"product_{order[1]}.md"
+        pdf_file = ebook_path / f"product_{order[1]}.pdf"
+
+        if not md_file.exists():
             connection.close()
 
             return {
                 "status": "error",
-                "message": "Arquivo do produto não encontrado."
+                "message": "Arquivo Markdown do produto não encontrado."
             }
 
-        # ==========================
-        # Registrar entrega
-        # ==========================
+        if not pdf_file.exists():
+
+            try:
+                product_generator._generate_pdf(
+                    md_file.read_text(
+                        encoding="utf-8"
+                    ),
+                    pdf_file
+                )
+
+            except Exception as error:
+                connection.close()
+
+                return {
+                    "status": "error",
+                    "message": "Não foi possível gerar o PDF.",
+                    "error": str(error)
+                }
+
+        if not pdf_file.exists():
+            connection.close()
+
+            return {
+                "status": "error",
+                "message": "PDF do produto não foi gerado."
+            }
 
         delivered_at = datetime.now().isoformat()
 
@@ -122,10 +148,6 @@ class DeliveryService:
         connection.commit()
         connection.close()
 
-        # ==========================
-        # Resultado
-        # ==========================
-
         return {
             "status": "delivered",
             "delivery": {
@@ -134,9 +156,10 @@ class DeliveryService:
                 "product_id": order[1],
                 "product_name": order[5],
                 "product_type": order[6],
-                "file": str(file_path),
+                "file": str(pdf_file),
+                "format": "pdf",
                 "delivered_at": delivered_at,
-                "message": "Produto liberado para entrega."
+                "message": "Produto PDF liberado para entrega automaticamente."
             }
         }
 
