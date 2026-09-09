@@ -9,6 +9,7 @@ from app.business.opportunity_engine import opportunity_engine
 from app.business.novelty_engine import novelty_engine
 from app.business.offer_engine import offer_engine
 from app.business.sales_engine import sales_engine
+from app.business.social_publisher import social_publisher
 from app.business.learning_engine import learning_engine
 from app.business.engine import business_engine
 from app.products.factory import product_factory
@@ -453,6 +454,34 @@ class AutonomousBusinessEngine:
                             product_id=int(product_id),
                             offer=offer_result,
                         )
+
+                        # ------------------------------------------------
+                        # PUBLICAÇÃO ORGÂNICA AUTOMÁTICA
+                        # ------------------------------------------------
+                        # Só publica no Instagram depois que o produto
+                        # passou pelo ProductFactory + SalesEngine.
+                        # Publicação orgânica possui custo financeiro R$0.
+
+                        if (
+                            isinstance(publication_result, dict)
+                            and publication_result.get("status") == "published"
+                        ):
+                            social_product = {
+                                "id": int(product_id),
+                                "name": (
+                                    offer_result.get("offer_name")
+                                    or "Produto Digital"
+                                ),
+                            }
+
+                            social_result = (
+                                await social_publisher.publish(
+                                    product=social_product,
+                                    offer=offer_result,
+                                )
+                            )
+
+                            publication_result["social"] = social_result
 
                 if isinstance(result, dict):
 

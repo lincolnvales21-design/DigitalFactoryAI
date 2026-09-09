@@ -92,6 +92,46 @@ async def prepare_post(request: PreparePostRequest):
     }
 
 
+
+@router.get("/media/{product_id}")
+async def instagram_product_image(product_id: int):
+    from PIL import Image
+
+    png_path = Path(
+        f"generated_products/design/product_{product_id}_cover.png"
+    )
+
+    jpg_path = Path(
+        f"generated_products/design/product_{product_id}_instagram.jpg"
+    )
+
+    if not png_path.exists() and not jpg_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Imagem do produto não encontrada",
+        )
+
+    if png_path.exists():
+        try:
+            image = Image.open(png_path).convert("RGB")
+            image.save(
+                jpg_path,
+                "JPEG",
+                quality=90,
+                optimize=True,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao preparar imagem: {exc}",
+            )
+
+    return FileResponse(
+        jpg_path,
+        media_type="image/jpeg",
+    )
+
+
 @router.get("/test-image")
 async def instagram_test_image():
     image_path = Path("generated_products/design/instagram_test.jpg")
