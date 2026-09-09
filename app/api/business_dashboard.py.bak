@@ -476,93 +476,93 @@ th {{
     }}
 }}
 
-.publication-results-grid {{
+.publication-results-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 15px;
     margin: 15px 0 25px 0;
-}}
+}
 
-.publication-result-card {{
+.publication-result-card {
     border: 1px solid #ddd;
     border-radius: 10px;
     padding: 16px;
     background: #fff;
-}}
+}
 
-.publication-result-row {{
+.publication-result-row {
     display: flex;
     justify-content: space-between;
     padding: 8px 0;
     border-bottom: 1px solid #eee;
-}}
+}
 
-.publication-content-card {{
+.publication-content-card {
     margin-top: 15px;
     padding: 18px;
     border: 1px solid #ddd;
     border-radius: 10px;
     background: #fafafa;
-}}
+}
 
-.publication-content-text {{
+.publication-content-text {
     margin-top: 12px;
     padding: 14px;
     background: #fff;
     border-radius: 8px;
     white-space: pre-wrap;
     line-height: 1.6;
-}}
+}
 
-.publication-content-info {{
+.publication-content-info {
     margin-top: 10px;
     font-size: 0.9em;
     opacity: 0.8;
-}}
+}
 
-.machine-timeline {{
+.machine-timeline {
     display: flex;
     flex-direction: column;
     gap: 12px;
     margin: 15px 0 25px 0;
-}}
+}
 
-.timeline-item {{
+.timeline-item {
     display: flex;
     gap: 12px;
     padding: 14px;
     border-radius: 10px;
     background: #f7f7f7;
     border: 1px solid #ddd;
-}}
+}
 
-.timeline-status {{
+.timeline-status {
     font-size: 20px;
-}}
+}
 
-.timeline-content {{
+.timeline-content {
     flex: 1;
-}}
+}
 
-.timeline-content strong {{
+.timeline-content strong {
     display: block;
     margin-bottom: 5px;
-}}
+}
 
-.timeline-content small {{
+.timeline-content small {
     display: block;
     margin-top: 7px;
     opacity: 0.7;
-}}
+}
 
-.section-info {{
+.section-info {
     padding: 14px;
     margin: 12px 0;
     border-radius: 10px;
     background: #f5f5f5;
     border: 1px solid #ddd;
     line-height: 1.5;
-}}
+}
 
 </style>
 </head>

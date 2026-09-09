@@ -2,6 +2,7 @@ from datetime import datetime
 import hashlib
 import hmac
 import os
+from app.business.acquisition_tracker import acquisition_tracker
 
 import mercadopago
 
@@ -594,6 +595,21 @@ async def mercadopago_webhook(request: Request):
             )
 
             connection.commit()
+
+            # --------------------------------------------------
+            # Rastreamento comercial da venda
+            # --------------------------------------------------
+            try:
+                acquisition_tracker.track_sale_from_order(
+                    order_id=order_id,
+                    product_id=local_payment[1],
+                    amount=transaction_amount,
+                    currency=provider_currency,
+                )
+            except Exception:
+                # O rastreamento nunca pode impedir
+                # a entrega de uma venda já paga.
+                pass
 
             # --------------------------------------------------
             # Entrega automática após pagamento aprovado

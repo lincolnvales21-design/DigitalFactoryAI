@@ -29,6 +29,8 @@ from app.api import delivery
 from app.api import finance
 from app.api import business
 from app.api import business_dashboard
+from app.api import acquisition
+from app.api import instagram
 
 from app.api.admin.security import router as security_router
 from app.api.admin.secret import router as secret_router
@@ -97,6 +99,8 @@ app.include_router(delivery.router)
 app.include_router(finance.router)
 app.include_router(business.router)
 app.include_router(business_dashboard.router)
+app.include_router(acquisition.router)
+app.include_router(instagram.router)
 
 # ==========================
 # Health Check

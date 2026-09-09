@@ -1,4 +1,6 @@
+from app.business.acquisition_tracker import acquisition_tracker
 
+import os
 import sqlite3
 from pathlib import Path
 from datetime import datetime
@@ -58,7 +60,15 @@ class CheckoutEngine:
             "status": row[5],
         }
 
-    def _create_order(self, product, customer_email):
+    def _create_order(
+        self,
+        product,
+        customer_email,
+        channel="unknown",
+        source=None,
+        campaign=None,
+        medium=None,
+    ):
         conn = self._connect()
         cursor = conn.cursor()
 
@@ -105,6 +115,23 @@ class CheckoutEngine:
         conn.commit()
         conn.close()
 
+        # Registra a origem do pedido.
+        try:
+            acquisition_tracker.track_order(
+                product_id=product["id"],
+                order_id=order_id,
+                channel=channel,
+                source=source,
+                campaign=campaign,
+                medium=medium,
+                customer_email=customer_email,
+                amount=product["price"],
+                currency=product["currency"],
+            )
+        except Exception:
+            # O rastreamento nunca pode derrubar o checkout.
+            pass
+
         return order_id
 
     def _create_payment(self, order_id):
@@ -116,7 +143,7 @@ class CheckoutEngine:
         payload = json.dumps({}).encode("utf-8")
 
         request = Request(
-            f"http://127.0.0.1:8000/payments/create/{order_id}",
+            f"{os.getenv("DIGITALFACTORY_API_URL", "http://127.0.0.1:5000")}/payments/create/{order_id}",
             data=payload,
             headers={
                 "Content-Type": "application/json"
@@ -156,7 +183,15 @@ class CheckoutEngine:
                 "detail": str(exc),
             }
 
-    def checkout(self, product_id, customer_email):
+    def checkout(
+        self,
+        product_id,
+        customer_email,
+        channel="unknown",
+        source=None,
+        campaign=None,
+        medium=None,
+    ):
         product = self._get_product(product_id)
 
         if not product:
@@ -180,7 +215,11 @@ class CheckoutEngine:
 
         order_id = self._create_order(
             product,
-            customer_email
+            customer_email,
+            channel=channel,
+            source=source,
+            campaign=campaign,
+            medium=medium,
         )
 
         payment = self._create_payment(order_id)

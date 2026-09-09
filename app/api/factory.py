@@ -8,7 +8,7 @@ router = APIRouter(prefix="/factory", tags=["Factory Control"])
 
 
 @router.post("/start")
-def start_factory(
+async def start_factory(
     interval: int = 3600,
     authorized: bool = Depends(verify_operational_code),
 ):
@@ -21,7 +21,7 @@ def start_factory(
             "message": "A fábrica já está em execução.",
         }
 
-    return autonomous_factory_loop.start(interval=interval)
+    return await autonomous_factory_loop.start(interval=interval)
 
 
 @router.post("/pause")

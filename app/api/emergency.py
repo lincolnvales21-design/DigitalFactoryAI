@@ -30,7 +30,7 @@ def emergency_status():
 
 
 @router.post("/shutdown")
-def emergency_shutdown_now(
+async def emergency_shutdown_now(
     x_factory_stop_code: str | None = Header(default=None),
 ):
     """
@@ -39,7 +39,19 @@ def emergency_shutdown_now(
     """
     _verify_owner_code(x_factory_stop_code)
 
-    return emergency_shutdown.shutdown_and_reset()
+    # Import local evita dependência circular durante a inicialização.
+    from app.business.autonomous_factory_loop import autonomous_factory_loop
+
+    # Primeiro ativa o bloqueio persistente.
+    result = emergency_shutdown.shutdown_and_reset()
+
+    # Depois interrompe imediatamente o loop em execução.
+    factory_result = await autonomous_factory_loop.stop()
+
+    result["factory_loop"] = factory_result
+    result["factory_stopped"] = True
+
+    return result
 
 
 @router.post("/release")

@@ -10,6 +10,11 @@ from app.business.sales_engine import (
     sales_engine
 )
 
+from app.business.publication_tracker import (
+    publication_tracker
+)
+
+
 
 class MarketingAgent(BaseAgent):
 
@@ -281,6 +286,30 @@ class MarketingAgent(BaseAgent):
                 ),
             }
 
+
+        # =====================================================
+        # REGISTRO: OFERTA CRIADA
+        # =====================================================
+
+        try:
+            publication_tracker.log_activity(
+                activity_type="offer_created",
+                product_id=product_id,
+                title="Oferta comercial criada",
+                description=(
+                    f"Oferta criada para o produto "
+                    f"'{product_name}'."
+                ),
+                status="completed",
+                metadata={
+                    "offer_name": offer.get("offer_name"),
+                    "price": offer.get("price"),
+                    "currency": offer.get("currency"),
+                },
+            )
+        except Exception:
+            pass
+
         # =====================================================
         # 7. PUBLICAR ATRAVÉS DO SALES ENGINE
         # =====================================================
@@ -289,6 +318,52 @@ class MarketingAgent(BaseAgent):
             product_id=product_id,
             offer=offer,
         )
+
+
+        # =====================================================
+        # REGISTRO: PUBLICAÇÃO
+        # =====================================================
+
+        try:
+
+            publication_status = (
+                publication.get("status")
+                if isinstance(publication, dict)
+                else "unknown"
+            )
+
+            publication_tracker.create_publication(
+                product_id=product_id,
+                channel="digitalfactory",
+                status=(
+                    "published"
+                    if publication_status == "published"
+                    else "prepared"
+                ),
+                title=product_name,
+                content=offer.get("sales_copy"),
+                source="internal",
+                campaign="autonomous_factory",
+                medium="sales_page",
+            )
+
+            publication_tracker.log_activity(
+                activity_type="publication",
+                product_id=product_id,
+                title="Página de venda processada",
+                description=(
+                    f"A página de venda do produto "
+                    f"'{product_name}' foi processada pelo Sales Engine."
+                ),
+                status=publication_status or "unknown",
+                metadata={
+                    "channel": "digitalfactory",
+                    "publication_status": publication_status,
+                },
+            )
+
+        except Exception:
+            pass
 
         # =====================================================
         # 8. PÁGINA DE VENDAS

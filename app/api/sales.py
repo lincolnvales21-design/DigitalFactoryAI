@@ -22,6 +22,10 @@ async def get_checkout_info(product_id: int):
 
 class CheckoutRequest(BaseModel):
     customer_email: str
+    channel: str = "unknown"
+    source: str | None = None
+    campaign: str | None = None
+    medium: str | None = None
 
 
 @router.post("/checkout/{product_id}")
@@ -36,4 +40,8 @@ async def create_checkout(
     return checkout_engine.checkout(
         product_id=product_id,
         customer_email=data.customer_email,
+        channel=data.channel,
+        source=data.source,
+        campaign=data.campaign,
+        medium=data.medium,
     )
