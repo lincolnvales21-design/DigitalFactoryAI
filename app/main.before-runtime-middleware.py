@@ -31,7 +31,6 @@ from app.api import business
 from app.api import business_dashboard
 from app.api import acquisition
 from app.api import instagram
-from app.api import observability
 
 from app.api.admin.security import router as security_router
 from app.api.admin.secret import router as secret_router
@@ -102,7 +101,6 @@ app.include_router(business.router)
 app.include_router(business_dashboard.router)
 app.include_router(acquisition.router)
 app.include_router(instagram.router)
-app.include_router(observability.router)
 
 # ==========================
 # Health Check
@@ -185,31 +183,3 @@ async def stop_autonomous_runtime():
 @app.get("/autonomous/status")
 async def autonomous_status():
     return autonomous_runtime.status()
-
-
-# ==========================================================
-# DIGITALFACTORYAI — AUTONOMOUS RUNTIME GUARANTEE
-# ==========================================================
-
-from fastapi import Request
-
-
-@app.middleware("http")
-async def ensure_autonomous_runtime(
-    request: Request,
-    call_next,
-):
-    try:
-        if (
-            autonomous_runtime.enabled
-            and (
-                autonomous_runtime._task is None
-                or autonomous_runtime._task.done()
-            )
-        ):
-            autonomous_runtime.start()
-    except Exception:
-        pass
-
-    response = await call_next(request)
-    return response
