@@ -552,7 +552,7 @@ OBSERVABILITY_HTML = r"""<!doctype html>
     .dot { width: 8px; height: 8px; display: inline-block; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 16%, transparent); }
     button { border: 1px solid var(--line); color: var(--text); background: var(--panel-soft); border-radius: 10px; padding: 9px 12px; cursor: pointer; font: inherit; }
     button:hover { border-color: rgba(255,255,255,.35); }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .grid { display: grid; grid-template-columns: 1.35fr .65fr; gap: 16px; }
     .grid > *, .runtime > *, .kpis, .metric-grid, .metric { min-width: 0; }
     .panel { background: linear-gradient(145deg, rgba(21, 29, 49, .96), rgba(13, 19, 34, .92)); border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: 0 16px 50px rgba(0,0,0,.16); }
     .span-2 { grid-column: span 2; }
@@ -569,11 +569,11 @@ OBSERVABILITY_HTML = r"""<!doctype html>
     .metric { padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.025); }
     .metric-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
     .metric-value { font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -.03em; }
-    .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
-    .kpi { min-height: 100px; }
-    .kpi .metric-value { font-size: 27px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+    .kpi { min-height: 118px; }
+    .kpi .metric-value { font-size: 30px; }
     .accent-green { color: var(--green); } .accent-blue { color: var(--blue); } .accent-purple { color: var(--purple); } .accent-yellow { color: var(--yellow); }
-    .decision-box { min-height: 135px; padding: 18px; border-radius: 14px; background: rgba(134,168,255,.07); border: 1px solid rgba(134,168,255,.22); }
+    .decision-box { min-height: 150px; padding: 18px; border-radius: 14px; background: rgba(134,168,255,.07); border: 1px solid rgba(134,168,255,.22); }
     .decision-label { color: var(--blue); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; font-weight: 800; }
     .decision-value { margin: 10px 0 7px; font-size: 20px; font-weight: 750; }
     .reason { color: #cbd6ea; }
@@ -604,7 +604,6 @@ OBSERVABILITY_HTML = r"""<!doctype html>
     .empty { padding: 24px 4px; color: var(--muted); }
     .source-errors { margin: 16px 0 0; color: var(--yellow); font-size: 12px; }
     @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } .span-2 { grid-column: auto; } .runtime { grid-template-columns: 1fr; } }
-    @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 680px) {
       .shell { padding: 22px 15px 36px; } .topbar { display: block; } .toolbar { margin-top: 18px; justify-content: space-between; }
       .panel { padding: 17px; border-radius: 15px; } .metric-grid, .kpis { grid-template-columns: repeat(2, 1fr); }
@@ -862,5 +861,4 @@ def observability():
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard_alias():
-    from app.api.business_dashboard import business_dashboard
-    return business_dashboard()
+    return HTMLResponse(OBSERVABILITY_HTML)
