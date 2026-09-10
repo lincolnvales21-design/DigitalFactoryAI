@@ -253,7 +253,7 @@ class AutonomousActionOrchestrator:
     # EXECUÇÃO
     # --------------------------------------------------------
 
-    async def execute_decision(self, plan=None):
+    async def execute_decision(self):
 
         # ====================================================
         # KILL SWITCH
@@ -284,8 +284,7 @@ class AutonomousActionOrchestrator:
         # OBTER DECISÃO
         # ====================================================
 
-        if plan is None:
-            plan = self.get_decision()
+        plan = self.get_decision()
 
         if not isinstance(plan, dict):
 

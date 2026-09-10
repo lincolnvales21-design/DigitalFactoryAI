@@ -298,7 +298,7 @@ class AutonomousCycleOrchestrator:
 
                     action = await (
                         autonomous_action_orchestrator
-                        .execute_decision(decision)
+                        .execute_decision()
                     )
 
                     execution_mode = (
@@ -585,21 +585,6 @@ class AutonomousCycleOrchestrator:
 
         rows = cursor.fetchall()
 
-        cursor.execute("""
-            SELECT
-                decision,
-                reason,
-                product_id,
-                confidence,
-                should_run,
-                created_at
-            FROM autonomous_cycle_gates
-            ORDER BY id DESC
-            LIMIT 1
-        """)
-
-        canonical_gate = cursor.fetchone()
-
         conn.close()
 
         result = []
@@ -625,45 +610,6 @@ class AutonomousCycleOrchestrator:
                     "finished_at": row[7],
                 }
             )
-
-        # Compatibility projection for cycles recorded before the
-        # orchestrator passed one decision through the whole cycle.
-        # It does not rewrite persisted history; it makes the latest
-        # history response agree with the sovereign Cycle Gate.
-        if result and canonical_gate:
-            persisted_decision = result[0].get("decision")
-            canonical_decision = (
-                dict(persisted_decision)
-                if isinstance(persisted_decision, dict)
-                else {}
-            )
-
-            cycle_action_map = {
-                "wait": "wait",
-                "expand_winner": "expand_product",
-                "validate_product": "validate_product",
-                "optimize_offer": "optimize_offer",
-                "discover_opportunity": "discover_opportunity",
-            }
-
-            canonical_decision.update(
-                {
-                    "gate_decision": canonical_gate[0],
-                    "cycle_action": cycle_action_map.get(
-                        canonical_gate[0],
-                        canonical_gate[0],
-                    ),
-                    "product_id": canonical_gate[2],
-                    "reason": canonical_gate[1],
-                    "confidence": canonical_gate[3],
-                    "should_run": bool(canonical_gate[4]),
-                    "canonical_source": "autonomous_cycle_gate",
-                    "gate_created_at": canonical_gate[5],
-                }
-            )
-
-            result[0]["decision"] = canonical_decision
-            result[0]["canonical_source"] = "autonomous_cycle_gate"
 
         return result
 

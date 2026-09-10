@@ -8,9 +8,6 @@ from app.business.autonomous_runtime import autonomous_runtime
 from app.business.autonomous_cycle_orchestrator import (
     autonomous_cycle_orchestrator,
 )
-from app.business.autonomous_cycle_gate import (
-    autonomous_cycle_gate,
-)
 from app.business.publication_tracker import publication_tracker
 from app.database.database import get_connection
 
@@ -149,12 +146,6 @@ def _observability_data():
         source_errors.append(f"Histórico de ciclos: {exc}")
 
     try:
-        gate_history = autonomous_cycle_gate.history()
-    except Exception as exc:
-        gate_history = []
-        source_errors.append(f"Histórico do Cycle Gate: {exc}")
-
-    try:
         finance = _read_finance()
         business = _business_metrics(finance)
     except Exception as exc:
@@ -178,7 +169,6 @@ def _observability_data():
         source_errors.append(f"Publicações: {exc}")
 
     latest = history[0] if history else {}
-    canonical_gate = gate_history[0] if gate_history else {}
     latest_payload = {
         "decision": latest.get("decision"),
         "action": latest.get("action"),
@@ -188,12 +178,10 @@ def _observability_data():
         latest_payload,
         ("reason", "rationale", "explanation", "message"),
     )
-    product_id = canonical_gate.get("product_id")
-    if product_id is None:
-        product_id = _find_value(
+    product_id = _find_value(
         latest_payload,
         ("product_id", "productId"),
-        )
+    )
     product_label = _find_value(
         latest_payload,
         ("product_name", "productName", "product_title", "productTitle"),
@@ -207,12 +195,10 @@ def _observability_data():
             offer,
             ("offer_name", "name", "title", "offer_title"),
         )
-    confidence = canonical_gate.get("confidence")
-    if confidence is None:
-        confidence = _find_value(
+    confidence = _find_value(
         latest_payload,
         ("confidence", "confidence_score", "confidenceScore"),
-        )
+    )
     agent = _find_value(
         latest_payload,
         ("agent", "agent_name", "agentName"),
@@ -262,29 +248,17 @@ def _observability_data():
             "last_error": _text(last_error),
         },
         "decision": {
-            "available": bool(canonical_gate),
-            "source": "autonomous_cycle_gate",
-            "gate_id": canonical_gate.get("id"),
-            "status": latest.get("status") if latest else None,
-            "cycle_number": latest.get("cycle_number") if latest else None,
-            "decided_at": canonical_gate.get("created_at"),
-            "value": _text(
-                canonical_gate.get("decision")
-                or _decision_label(latest.get("decision"))
-            ),
-            "reason": _text(
-                canonical_gate.get("reason")
-                or decision_reason
-            ),
+            "available": bool(latest),
+            "status": latest.get("status"),
+            "cycle_number": latest.get("cycle_number"),
+            "decided_at": latest.get("finished_at")
+            or latest.get("started_at"),
+            "value": _decision_label(latest.get("decision")),
+            "reason": _text(decision_reason),
             "product_id": product_id,
             "product_name": _product_name(product_id) or _text(product_label),
             "offer": _text(offer),
-            "confidence": _confidence_label(
-                canonical_gate.get("confidence")
-                if canonical_gate
-                else confidence
-            ),
-            "should_run": canonical_gate.get("should_run"),
+            "confidence": _confidence_label(confidence),
             "agent": _text(agent),
         },
         "last_cycle": _cycle_summary(latest) if latest else {},
