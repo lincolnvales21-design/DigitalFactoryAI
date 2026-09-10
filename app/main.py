@@ -155,3 +155,22 @@ app.include_router(emergency_router)
 
 # Painel visual de controle da fábrica
 app.include_router(control_panel_router)
+
+
+# ==========================================================
+# DIGITALFACTORYAI — AUTONOMOUS RUNTIME
+# ==========================================================
+
+from app.business.autonomous_runtime import (
+    autonomous_runtime,
+)
+
+
+@app.on_event("startup")
+async def start_autonomous_runtime():
+    autonomous_runtime.start()
+
+
+@app.on_event("shutdown")
+async def stop_autonomous_runtime():
+    await autonomous_runtime.stop()
