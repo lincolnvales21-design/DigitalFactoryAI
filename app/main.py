@@ -174,3 +174,40 @@ async def start_autonomous_runtime():
 @app.on_event("shutdown")
 async def stop_autonomous_runtime():
     await autonomous_runtime.stop()
+
+
+# ==========================================================
+# DIGITALFACTORYAI — AUTONOMOUS RUNTIME STATUS
+# ==========================================================
+
+@app.get("/autonomous/status")
+async def autonomous_status():
+    return autonomous_runtime.status()
+
+
+# ==========================================================
+# DIGITALFACTORYAI — AUTONOMOUS RUNTIME GUARANTEE
+# ==========================================================
+
+from fastapi import Request
+
+
+@app.middleware("http")
+async def ensure_autonomous_runtime(
+    request: Request,
+    call_next,
+):
+    try:
+        if (
+            autonomous_runtime.enabled
+            and (
+                autonomous_runtime._task is None
+                or autonomous_runtime._task.done()
+            )
+        ):
+            autonomous_runtime.start()
+    except Exception:
+        pass
+
+    response = await call_next(request)
+    return response
