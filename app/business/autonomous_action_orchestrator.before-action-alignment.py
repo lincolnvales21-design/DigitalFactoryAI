@@ -122,16 +122,6 @@ class AutonomousActionOrchestrator:
             "optimization_action"
         )
 
-        if not action:
-            action = decision.get(
-                "cycle_action"
-            )
-
-        if not action:
-            action = decision.get(
-                "action"
-            )
-
         product_id = decision.get(
             "product_id"
         )
@@ -222,18 +212,11 @@ class AutonomousActionOrchestrator:
             return (
                 f"Validar comercialmente o "
                 f"produto #{product_id} ({product}). "
-                "Analisar o desempenho comercial "
-                "já observado, sinais de demanda, "
-                "vendas confirmadas, pedidos pendentes, "
-                "posicionamento, oferta e potencial "
-                "de conversão. "
-                "Identificar os principais obstáculos "
-                "à compra e propor ações práticas "
-                "para aumentar conversão e distribuição. "
-                "Priorizar melhorias no produto vencedor "
-                "antes de criar novos produtos. "
-                "Não inventar depoimentos, vendas, "
-                "resultados ou evidências."
+                "Pesquisar evidências de demanda, "
+                "identificar sinais positivos e "
+                "negativos e determinar quais "
+                "ajustes devem ser realizados "
+                "antes de uma expansão."
             )
 
         # ----------------------------------------------------
@@ -372,11 +355,6 @@ class AutonomousActionOrchestrator:
         action = decision.get(
             "optimization_action"
         )
-
-        if not action:
-            action = decision.get(
-                "cycle_action"
-            )
 
         if not action:
             action = decision.get(

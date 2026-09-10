@@ -20,43 +20,16 @@ from app.business.emergency_shutdown import (
 
 
 class AutonomousActionOrchestrator:
-    """
-    Orquestrador operacional da fábrica autônoma.
-
-    Fluxo:
-
-        DECISÃO
-           ↓
-        AÇÃO
-           ↓
-        CONTROLE FINANCEIRO
-           ↓
-        AGENTE RESPONSÁVEL
-           ↓
-        RESULTADO
-           ↓
-        HISTÓRICO
-
-    O orquestrador não autoriza gastos diretamente.
-    Toda ação financeira passa pelo
-    ActionExecutionEngine.
-
-    O Kill Switch possui prioridade máxima.
-    """
 
     AGENT_MAP = {
         "expand_winner": "ProductAgent",
         "expand_product": "ProductAgent",
-
         "create_variation": "ProductAgent",
         "create_product_variation": "ProductAgent",
-
         "optimize_conversion": "MarketingAgent",
         "optimize_offer": "MarketingAgent",
-
         "validate_before_expansion": "ResearchAgent",
         "validate_product": "ResearchAgent",
-
         "discover_new_opportunity": "ResearchAgent",
         "discover_opportunity": "ResearchAgent",
     }
@@ -64,10 +37,6 @@ class AutonomousActionOrchestrator:
     def __init__(self):
         self.db_path = Path("digitalfactory.db")
         self._ensure_database()
-
-    # --------------------------------------------------------
-    # DATABASE
-    # --------------------------------------------------------
 
     def _connect(self):
         return sqlite3.connect(self.db_path)
@@ -93,62 +62,25 @@ class AutonomousActionOrchestrator:
         conn.commit()
         conn.close()
 
-    # --------------------------------------------------------
-    # DECISÃO
-    # --------------------------------------------------------
-
     def get_decision(self):
-
         return autonomous_decision_loop.build_cycle_objective()
 
-    # --------------------------------------------------------
-    # AGENTE RESPONSÁVEL
-    # --------------------------------------------------------
-
     def select_agent(self, action):
-
         return self.AGENT_MAP.get(
             action,
             "ResearchAgent"
         )
 
-    # --------------------------------------------------------
-    # OBJETIVO OPERACIONAL
-    # --------------------------------------------------------
-
     def build_agent_objective(self, decision):
 
-        action = decision.get(
-            "optimization_action"
-        )
-
-        if not action:
-            action = decision.get(
-                "cycle_action"
-            )
-
-        if not action:
-            action = decision.get(
-                "action"
-            )
-
-        product_id = decision.get(
-            "product_id"
-        )
-
-        product = decision.get(
-            "product"
-        )
-
-        # ----------------------------------------------------
-        # EXPANDIR VENCEDOR
-        # ----------------------------------------------------
+        action = decision.get("optimization_action")
+        product_id = decision.get("product_id")
+        product = decision.get("product")
 
         if action in (
             "expand_winner",
             "expand_product",
         ):
-
             return (
                 f"Expandir o produto vencedor "
                 f"#{product_id} ({product}). "
@@ -160,15 +92,10 @@ class AutonomousActionOrchestrator:
                 "evidência de demanda."
             )
 
-        # ----------------------------------------------------
-        # CRIAR VARIAÇÃO
-        # ----------------------------------------------------
-
         if action in (
             "create_variation",
             "create_product_variation",
         ):
-
             return (
                 f"Criar uma nova variação do "
                 f"produto #{product_id} ({product}), "
@@ -179,12 +106,7 @@ class AutonomousActionOrchestrator:
                 "diferenciação clara."
             )
 
-        # ----------------------------------------------------
-        # OTIMIZAR CONVERSÃO
-        # ----------------------------------------------------
-
         if action == "optimize_conversion":
-
             return (
                 f"Otimizar a conversão do "
                 f"produto #{product_id} ({product}). "
@@ -195,12 +117,7 @@ class AutonomousActionOrchestrator:
                 "Não inventar depoimentos ou resultados."
             )
 
-        # ----------------------------------------------------
-        # OTIMIZAR OFERTA
-        # ----------------------------------------------------
-
         if action == "optimize_offer":
-
             return (
                 f"Otimizar a oferta do "
                 f"produto #{product_id} ({product}). "
@@ -210,35 +127,19 @@ class AutonomousActionOrchestrator:
                 "copy e chamada para ação."
             )
 
-        # ----------------------------------------------------
-        # VALIDAR PRODUTO
-        # ----------------------------------------------------
-
         if action in (
             "validate_before_expansion",
             "validate_product",
         ):
-
             return (
                 f"Validar comercialmente o "
                 f"produto #{product_id} ({product}). "
-                "Analisar o desempenho comercial "
-                "já observado, sinais de demanda, "
-                "vendas confirmadas, pedidos pendentes, "
-                "posicionamento, oferta e potencial "
-                "de conversão. "
-                "Identificar os principais obstáculos "
-                "à compra e propor ações práticas "
-                "para aumentar conversão e distribuição. "
-                "Priorizar melhorias no produto vencedor "
-                "antes de criar novos produtos. "
-                "Não inventar depoimentos, vendas, "
-                "resultados ou evidências."
+                "Pesquisar evidências de demanda, "
+                "identificar sinais positivos e "
+                "negativos e determinar quais "
+                "ajustes devem ser realizados "
+                "antes de uma expansão."
             )
-
-        # ----------------------------------------------------
-        # NOVA OPORTUNIDADE
-        # ----------------------------------------------------
 
         return (
             "Descobrir uma nova oportunidade "
@@ -248,10 +149,6 @@ class AutonomousActionOrchestrator:
             "demanda, diferenciação e "
             "potencial comercial antes da produção."
         )
-
-    # --------------------------------------------------------
-    # EXECUÇÃO
-    # --------------------------------------------------------
 
     async def execute_decision(self):
 
@@ -270,15 +167,16 @@ class AutonomousActionOrchestrator:
                 ),
             }
 
+            self._log(
+                action="blocked",
+                agent=None,
+                product_id=None,
+                status="emergency_off",
+                objective=None,
+                result=result,
+            )
+
             return result
-
-        # ====================================================
-        # GARANTIR AGENTES CARREGADOS
-        # ====================================================
-
-        from app.agents.loader import load_agents
-
-        load_agents()
 
         # ====================================================
         # OBTER DECISÃO
@@ -302,11 +200,7 @@ class AutonomousActionOrchestrator:
             {}
         )
 
-        if not isinstance(
-            decision,
-            dict
-        ):
-
+        if not isinstance(decision, dict):
             decision = {}
 
         # ====================================================
@@ -375,11 +269,6 @@ class AutonomousActionOrchestrator:
 
         if not action:
             action = decision.get(
-                "cycle_action"
-            )
-
-        if not action:
-            action = decision.get(
                 "action"
             )
 
@@ -409,13 +298,6 @@ class AutonomousActionOrchestrator:
         # ====================================================
         # CONTROLE FINANCEIRO
         # ====================================================
-
-        # Neste estágio todas as ações autônomas
-        # começam com custo estimado zero.
-        #
-        # Caso futuramente uma ação precise gastar,
-        # ela obrigatoriamente deverá passar pela
-        # política central do ActionExecutionEngine.
 
         execution_gate = (
             await action_execution_engine.execute(
@@ -486,12 +368,8 @@ class AutonomousActionOrchestrator:
             return result
 
         # ====================================================
-        # NOVA BARREIRA DE SEGURANÇA
+        # KILL SWITCH — ÚLTIMA BARREIRA
         # ====================================================
-
-        # O Kill Switch é verificado novamente
-        # imediatamente antes de entregar a ação
-        # ao agente.
 
         if emergency_shutdown.is_emergency_off():
 
@@ -531,9 +409,9 @@ class AutonomousActionOrchestrator:
                 objective,
             )
 
-            # ------------------------------------------------
-            # PROPAGAR FALHA DO AGENTE
-            # ------------------------------------------------
+            # =================================================
+            # FALHA DO AGENTE
+            # =================================================
 
             if (
                 isinstance(agent_result, dict)
@@ -572,9 +450,9 @@ class AutonomousActionOrchestrator:
 
                 return result
 
-            # ------------------------------------------------
-            # SUCESSO REAL DO AGENTE
-            # ------------------------------------------------
+            # =================================================
+            # SUCESSO
+            # =================================================
 
             result = {
                 "status": "executed",
@@ -591,10 +469,6 @@ class AutonomousActionOrchestrator:
                 ),
                 "decision": decision,
             }
-
-            # ------------------------------------------------
-            # REGISTRAR EXECUÇÃO
-            # ------------------------------------------------
 
             self._log(
                 action=action,
@@ -617,6 +491,7 @@ class AutonomousActionOrchestrator:
                 "product_id": product_id,
                 "objective": objective,
                 "error": str(exc),
+                "decision": decision,
             }
 
             self._log(
@@ -670,6 +545,7 @@ class AutonomousActionOrchestrator:
                 json.dumps(
                     result,
                     ensure_ascii=False,
+                    default=str,
                 ),
                 datetime.now(
                     timezone.utc
@@ -679,65 +555,6 @@ class AutonomousActionOrchestrator:
 
         conn.commit()
         conn.close()
-
-    # --------------------------------------------------------
-    # HISTÓRICO
-    # --------------------------------------------------------
-
-    def history(self):
-
-        conn = self._connect()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT
-                id,
-                action,
-                agent,
-                product_id,
-                status,
-                objective,
-                result_json,
-                created_at
-            FROM autonomous_action_runs
-            ORDER BY id DESC
-            LIMIT 100
-            """
-        )
-
-        rows = cursor.fetchall()
-
-        conn.close()
-
-        result = []
-
-        for row in rows:
-
-            try:
-
-                data = json.loads(
-                    row[6]
-                )
-
-            except Exception:
-
-                data = row[6]
-
-            result.append(
-                {
-                    "id": row[0],
-                    "action": row[1],
-                    "agent": row[2],
-                    "product_id": row[3],
-                    "status": row[4],
-                    "objective": row[5],
-                    "result": data,
-                    "created_at": row[7],
-                }
-            )
-
-        return result
 
 
 autonomous_action_orchestrator = (

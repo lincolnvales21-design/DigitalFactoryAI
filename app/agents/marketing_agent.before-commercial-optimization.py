@@ -1,4 +1,3 @@
-import re
 from app.agents.base import BaseAgent
 from app.memory.agent_memory import memory
 from app.knowledge.knowledge_base import knowledge
@@ -34,126 +33,52 @@ class MarketingAgent(BaseAgent):
         # 1. CONTEXTO DO PRODUTO
         # =====================================================
 
-        # Se a tarefa informa explicitamente "produto #N",
-        # esse produto tem prioridade sobre a memória mais recente.
-        task_product_match = re.search(
-            r"(?:produto|product)\s*#\s*(\d+)",
-            task,
-            re.IGNORECASE,
+        product_context = memory.get_latest_result(
+            "ProductAgent"
         )
 
-        requested_product_id = (
-            int(task_product_match.group(1))
-            if task_product_match
-            else None
-        )
+        if not product_context:
 
-        product = {}
-
-        if requested_product_id is not None:
-
-            try:
-                import sqlite3
-
-                conn = sqlite3.connect(
-                    "digitalfactory.db"
-                )
-                conn.row_factory = sqlite3.Row
-
-                row = conn.execute(
-                    """
-                    SELECT
-                        id,
-                        name,
-                        description,
-                        product_type,
-                        price,
-                        currency,
-                        status,
-                        created_at
-                    FROM products
-                    WHERE id = ?
-                    """,
-                    (requested_product_id,),
-                ).fetchone()
-
-                conn.close()
-
-                if row:
-                    product = dict(row)
-
-            except Exception as exc:
-
-                return {
-                    "status": "error",
-                    "agent": self.name,
-                    "task": task,
-                    "product_id": requested_product_id,
-                    "message": (
-                        "Erro ao carregar o produto "
-                        f"#{requested_product_id}: {exc}"
-                    ),
-                }
-
-            if not product:
-
-                return {
-                    "status": "error",
-                    "agent": self.name,
-                    "task": task,
-                    "product_id": requested_product_id,
-                    "message": (
-                        "O produto informado na tarefa "
-                        f"#{requested_product_id} não foi encontrado."
-                    ),
-                }
-
-        else:
-
-            product_context = memory.get_latest_result(
-                "ProductAgent"
-            )
-
-            if not product_context:
-
-                return {
-                    "status": "error",
-                    "agent": self.name,
-                    "task": task,
-                    "message": (
-                        "Nenhum produto do ProductAgent "
-                        "foi encontrado."
-                    ),
-                }
-
-            if isinstance(product_context, dict):
-
-                product = product_context.get(
-                    "product",
-                    {}
-                )
-
-                if not product:
-
-                    execution = product_context.get(
-                        "execution",
-                        {}
-                    )
-
-                    product = execution.get(
-                        "product",
-                        {}
-                    )
-
-            if not isinstance(product, dict):
-
-                product = {}
+            return {
+                "status": "error",
+                "agent": self.name,
+                "task": task,
+                "message": (
+                    "Nenhum produto do ProductAgent "
+                    "foi encontrado."
+                ),
+            }
 
         knowledge_context = knowledge.latest()
 
         # =====================================================
         # 2. EXTRAIR PRODUTO
         # =====================================================
+
+        product = {}
+
+        if isinstance(product_context, dict):
+
+            product = product_context.get(
+                "product",
+                {}
+            )
+
+            if not product:
+
+                execution = product_context.get(
+                    "execution",
+                    {}
+                )
+
+                product = execution.get(
+                    "product",
+                    {}
+                )
+
+        if not isinstance(product, dict):
+
+            product = {}
 
         product_id = product.get(
             "id"
@@ -220,10 +145,7 @@ class MarketingAgent(BaseAgent):
 
         novelty = {}
 
-        if requested_product_id is None and isinstance(
-            product_context,
-            dict
-        ):
+        if isinstance(product_context, dict):
 
             product_definition = (
                 product_context.get(
@@ -339,122 +261,13 @@ class MarketingAgent(BaseAgent):
         }
 
         # =====================================================
-        # 6. CONTEXTO COMERCIAL PARA OTIMIZAÇÃO
-        # =====================================================
-
-        optimize_existing = (
-            "optimize_offer" in task.lower()
-            or "otimizar a oferta" in task.lower()
-        )
-
-        commercial_context = {}
-
-        if optimize_existing:
-            try:
-                import sqlite3
-
-                conn = sqlite3.connect(
-                    "digitalfactory.db"
-                )
-                cursor = conn.cursor()
-
-                row = cursor.execute(
-                    """
-                    SELECT
-                        COUNT(*) AS total_orders,
-                        SUM(
-                            CASE
-                                WHEN LOWER(status) = 'paid'
-                                THEN 1
-                                ELSE 0
-                            END
-                        ) AS paid_orders,
-                        SUM(
-                            CASE
-                                WHEN LOWER(status) = 'pending'
-                                THEN 1
-                                ELSE 0
-                            END
-                        ) AS pending_orders,
-                        SUM(
-                            CASE
-                                WHEN LOWER(status) = 'paid'
-                                THEN amount
-                                ELSE 0
-                            END
-                        ) AS revenue
-                    FROM orders
-                    WHERE product_id = ?
-                    """,
-                    (product_id,),
-                ).fetchone()
-
-                conn.close()
-
-                total_orders = int(row[0] or 0)
-                paid_orders = int(row[1] or 0)
-                pending_orders = int(row[2] or 0)
-                revenue = float(row[3] or 0)
-
-                conversion = (
-                    round(
-                        (paid_orders / total_orders) * 100,
-                        2,
-                    )
-                    if total_orders
-                    else 0.0
-                )
-
-                commercial_context = {
-                    "product_id": product_id,
-                    "metrics": {
-                        "total_orders": total_orders,
-                        "paid_orders": paid_orders,
-                        "pending_orders": pending_orders,
-                        "revenue": revenue,
-                        "conversion_rate_percent": conversion,
-                    },
-                    "optimization_goal": (
-                        "Melhorar a conversão da oferta existente "
-                        "antes de criar qualquer nova variação."
-                    ),
-                }
-
-            except Exception as exc:
-                commercial_context = {
-                    "product_id": product_id,
-                    "error": str(exc),
-                }
-
-        # =====================================================
-        # OFERTA ATUAL
-        # =====================================================
-
-        existing_offer = None
-
-        if optimize_existing:
-            try:
-                existing_offer = (
-                    sales_engine.get_offer(product_id)
-                )
-            except Exception:
-                existing_offer = None
-
-        if isinstance(existing_offer, dict):
-            commercial_context["existing_offer"] = (
-                existing_offer
-            )
-
-        # =====================================================
-        # 7. CRIAR / OTIMIZAR OFERTA
+        # 6. CRIAR OFERTA COM OFFER ENGINE
         # =====================================================
 
         offer = await offer_engine.create_offer(
             product=offer_product,
             research=research,
             novelty=novelty,
-            commercial_context=commercial_context,
-            optimize_existing=optimize_existing,
         )
 
         if not isinstance(
@@ -642,7 +455,7 @@ class MarketingAgent(BaseAgent):
             "checkout": checkout,
 
             "product_memory_used": (
-                product
+                product_context
             ),
 
             "research_memory_used": (

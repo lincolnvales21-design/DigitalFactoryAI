@@ -217,13 +217,26 @@ class AutonomousCycleGate:
         )
 
         # ----------------------------------------------------
-        # REGRA 1 — PEDIDOS PENDENTES NÃO BLOQUEIAM CRESCIMENTO
+        # REGRA 1 — PEDIDOS PENDENTES
         # ----------------------------------------------------
 
-        # Pedidos pendentes continuam sendo monitorados para
-        # recuperação de pagamento, mas não podem congelar
-        # expansão, otimização ou descoberta de oportunidades.
-        pending_count = len(pending)
+        if pending:
+
+            result = {
+                "decision": "wait",
+                "reason": (
+                    "Existem pedidos pendentes. "
+                    "O sistema deve aguardar a confirmação "
+                    "dos pagamentos antes de tomar novas "
+                    "decisões de expansão ou criação."
+                ),
+                "product_id": None,
+                "confidence": 0.90,
+                "should_run": False,
+            }
+
+            self._save(result)
+            return result
 
         # ----------------------------------------------------
         # REGRA 2 — VENCEDOR
@@ -245,7 +258,6 @@ class AutonomousCycleGate:
                     0.75 + winner_sales * 0.05,
                 ),
                 "should_run": True,
-                "pending_orders": pending_count,
             }
 
             self._save(result)
@@ -256,40 +268,6 @@ class AutonomousCycleGate:
         # ----------------------------------------------------
 
         if winner_id is not None and winner_sales == 1:
-
-            # ------------------------------------------------
-            # APÓS A VALIDAÇÃO, OTIMIZAR ANTES DE REPETIR
-            # ------------------------------------------------
-
-            recent = self._recent_decisions(
-                limit=self.MAX_REPEATED_DECISIONS
-            )
-
-            validated = any(
-                row[0] == "validate_product"
-                and row[1] == winner_id
-                for row in recent
-            )
-
-            if validated:
-
-                result = {
-                    "decision": "optimize_offer",
-                    "reason": (
-                        f"O produto #{winner_id} já passou pela "
-                        "etapa de validação e possui uma venda "
-                        "confirmada. A próxima prioridade é "
-                        "otimizar oferta e conversão antes de "
-                        "criar novas variações."
-                    ),
-                    "product_id": winner_id,
-                    "confidence": 0.80,
-                    "should_run": True,
-                    "pending_orders": pending_count,
-                }
-
-                self._save(result)
-                return result
 
             result = {
                 "decision": "validate_product",
@@ -302,7 +280,6 @@ class AutonomousCycleGate:
                 "product_id": winner_id,
                 "confidence": 0.70,
                 "should_run": True,
-                "pending_orders": pending_count,
             }
 
             self._save(result)

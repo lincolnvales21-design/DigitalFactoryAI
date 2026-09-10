@@ -220,10 +220,7 @@ class MarketingAgent(BaseAgent):
 
         novelty = {}
 
-        if requested_product_id is None and isinstance(
-            product_context,
-            dict
-        ):
+        if isinstance(product_context, dict):
 
             product_definition = (
                 product_context.get(
@@ -642,7 +639,7 @@ class MarketingAgent(BaseAgent):
             "checkout": checkout,
 
             "product_memory_used": (
-                product
+                product_context
             ),
 
             "research_memory_used": (

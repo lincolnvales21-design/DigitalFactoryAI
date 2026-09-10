@@ -1,7 +1,5 @@
 import os
 import json
-import re
-import sqlite3
 
 from openai import OpenAI
 
@@ -32,142 +30,6 @@ class ResearchAgent(BaseAgent):
             "OPENAI_MODEL",
             "gpt-4.1-mini"
         )
-
-
-    def _get_commercial_data(self, task: str):
-        """
-        Consulta os dados comerciais reais do produto mencionado
-        na tarefa de validação.
-        """
-
-        match = re.search(
-            r"produto #([0-9]+)",
-            task,
-            re.IGNORECASE,
-        )
-
-        if not match:
-            return None
-
-        product_id = int(match.group(1))
-
-        db_path = os.getenv(
-            "DIGITALFACTORY_DB",
-            "digitalfactory.db",
-        )
-
-        try:
-            connection = sqlite3.connect(
-                db_path
-            )
-            connection.row_factory = sqlite3.Row
-
-            cursor = connection.cursor()
-
-            product = cursor.execute(
-                """
-                SELECT
-                    id,
-                    name,
-                    description,
-                    product_type,
-                    price,
-                    currency,
-                    status,
-                    created_at
-                FROM products
-                WHERE id = ?
-                """,
-                (product_id,),
-            ).fetchone()
-
-            if product is None:
-                connection.close()
-                return None
-
-            orders = cursor.execute(
-                """
-                SELECT
-                    COUNT(*) AS total_orders,
-                    SUM(
-                        CASE
-                            WHEN LOWER(status) = 'paid'
-                            THEN 1
-                            ELSE 0
-                        END
-                    ) AS paid_orders,
-                    SUM(
-                        CASE
-                            WHEN LOWER(status) = 'pending'
-                            THEN 1
-                            ELSE 0
-                        END
-                    ) AS pending_orders,
-                    SUM(
-                        CASE
-                            WHEN LOWER(status) = 'paid'
-                            THEN amount
-                            ELSE 0
-                        END
-                    ) AS revenue
-                FROM orders
-                WHERE product_id = ?
-                """,
-                (product_id,),
-            ).fetchone()
-
-            connection.close()
-
-            total_orders = int(
-                orders["total_orders"] or 0
-            )
-
-            paid_orders = int(
-                orders["paid_orders"] or 0
-            )
-
-            pending_orders = int(
-                orders["pending_orders"] or 0
-            )
-
-            revenue = float(
-                orders["revenue"] or 0
-            )
-
-            conversion_rate = (
-                round(
-                    (paid_orders / total_orders) * 100,
-                    2,
-                )
-                if total_orders
-                else 0.0
-            )
-
-            return {
-                "product_id": product_id,
-                "product": {
-                    "name": product["name"],
-                    "description": product["description"],
-                    "product_type": product["product_type"],
-                    "price": product["price"],
-                    "currency": product["currency"],
-                    "status": product["status"],
-                    "created_at": product["created_at"],
-                },
-                "commercial_metrics": {
-                    "total_orders": total_orders,
-                    "paid_orders": paid_orders,
-                    "pending_orders": pending_orders,
-                    "revenue": revenue,
-                    "conversion_rate_percent": conversion_rate,
-                },
-            }
-
-        except Exception as exc:
-            return {
-                "error": str(exc),
-                "product_id": product_id,
-            }
 
 
     def _fallback_research(self, task: str):
@@ -240,38 +102,12 @@ class ResearchAgent(BaseAgent):
         research = None
         research_mode = None
 
-        commercial_data = None
-
-        if (
-            "validate_product" in task.lower()
-            or "validar comercialmente" in task.lower()
-        ):
-            commercial_data = (
-                self._get_commercial_data(task)
-            )
-
 
         # ==========================================
         # Tentar pesquisa com OpenAI
         # ==========================================
 
         if self.client:
-
-            commercial_context = ""
-
-            if commercial_data:
-                commercial_context = f"""
-DADOS COMERCIAIS REAIS DO PRODUTO:
-
-{json.dumps(
-    commercial_data,
-    ensure_ascii=False,
-    indent=2,
-)}
-
-Use estes dados como fatos observados.
-Não invente métricas adicionais.
-"""
 
             prompt = f"""
 Você é o ResearchAgent do DigitalFactoryAI.
@@ -282,17 +118,7 @@ com potencial comercial.
 OBJETIVO RECEBIDO:
 {task}
 
-{commercial_context}
-
 Analise o objetivo e produza uma pesquisa estruturada.
-
-Quando houver DADOS COMERCIAIS REAIS:
-- baseie a validação nesses dados;
-- diferencie fatos observados de hipóteses;
-- avalie conversão, pedidos pendentes e receita;
-- identifique obstáculos comerciais;
-- proponha ações práticas de melhoria;
-- priorize melhorar o produto existente antes de criar outro.
 
 Procure identificar:
 
@@ -398,8 +224,6 @@ Formato:
             "research": research,
 
             "research_mode": research_mode,
-
-            "commercial_data": commercial_data,
 
             "message": (
                 "Pesquisa de mercado concluída."

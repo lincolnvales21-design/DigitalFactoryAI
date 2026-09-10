@@ -381,10 +381,6 @@ class AutonomousCycleOrchestrator:
 
                     cycle_status = "busy"
 
-                elif action_status == "waiting":
-
-                    cycle_status = "waiting"
-
                 else:
 
                     cycle_status = "completed"

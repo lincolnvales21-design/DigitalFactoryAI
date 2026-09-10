@@ -1,4 +1,3 @@
-import re
 from app.agents.base import BaseAgent
 from app.memory.agent_memory import memory
 from app.knowledge.knowledge_base import knowledge
@@ -34,126 +33,52 @@ class MarketingAgent(BaseAgent):
         # 1. CONTEXTO DO PRODUTO
         # =====================================================
 
-        # Se a tarefa informa explicitamente "produto #N",
-        # esse produto tem prioridade sobre a memória mais recente.
-        task_product_match = re.search(
-            r"(?:produto|product)\s*#\s*(\d+)",
-            task,
-            re.IGNORECASE,
+        product_context = memory.get_latest_result(
+            "ProductAgent"
         )
 
-        requested_product_id = (
-            int(task_product_match.group(1))
-            if task_product_match
-            else None
-        )
+        if not product_context:
 
-        product = {}
-
-        if requested_product_id is not None:
-
-            try:
-                import sqlite3
-
-                conn = sqlite3.connect(
-                    "digitalfactory.db"
-                )
-                conn.row_factory = sqlite3.Row
-
-                row = conn.execute(
-                    """
-                    SELECT
-                        id,
-                        name,
-                        description,
-                        product_type,
-                        price,
-                        currency,
-                        status,
-                        created_at
-                    FROM products
-                    WHERE id = ?
-                    """,
-                    (requested_product_id,),
-                ).fetchone()
-
-                conn.close()
-
-                if row:
-                    product = dict(row)
-
-            except Exception as exc:
-
-                return {
-                    "status": "error",
-                    "agent": self.name,
-                    "task": task,
-                    "product_id": requested_product_id,
-                    "message": (
-                        "Erro ao carregar o produto "
-                        f"#{requested_product_id}: {exc}"
-                    ),
-                }
-
-            if not product:
-
-                return {
-                    "status": "error",
-                    "agent": self.name,
-                    "task": task,
-                    "product_id": requested_product_id,
-                    "message": (
-                        "O produto informado na tarefa "
-                        f"#{requested_product_id} não foi encontrado."
-                    ),
-                }
-
-        else:
-
-            product_context = memory.get_latest_result(
-                "ProductAgent"
-            )
-
-            if not product_context:
-
-                return {
-                    "status": "error",
-                    "agent": self.name,
-                    "task": task,
-                    "message": (
-                        "Nenhum produto do ProductAgent "
-                        "foi encontrado."
-                    ),
-                }
-
-            if isinstance(product_context, dict):
-
-                product = product_context.get(
-                    "product",
-                    {}
-                )
-
-                if not product:
-
-                    execution = product_context.get(
-                        "execution",
-                        {}
-                    )
-
-                    product = execution.get(
-                        "product",
-                        {}
-                    )
-
-            if not isinstance(product, dict):
-
-                product = {}
+            return {
+                "status": "error",
+                "agent": self.name,
+                "task": task,
+                "message": (
+                    "Nenhum produto do ProductAgent "
+                    "foi encontrado."
+                ),
+            }
 
         knowledge_context = knowledge.latest()
 
         # =====================================================
         # 2. EXTRAIR PRODUTO
         # =====================================================
+
+        product = {}
+
+        if isinstance(product_context, dict):
+
+            product = product_context.get(
+                "product",
+                {}
+            )
+
+            if not product:
+
+                execution = product_context.get(
+                    "execution",
+                    {}
+                )
+
+                product = execution.get(
+                    "product",
+                    {}
+                )
+
+        if not isinstance(product, dict):
+
+            product = {}
 
         product_id = product.get(
             "id"
@@ -220,10 +145,7 @@ class MarketingAgent(BaseAgent):
 
         novelty = {}
 
-        if requested_product_id is None and isinstance(
-            product_context,
-            dict
-        ):
+        if isinstance(product_context, dict):
 
             product_definition = (
                 product_context.get(
@@ -642,7 +564,7 @@ class MarketingAgent(BaseAgent):
             "checkout": checkout,
 
             "product_memory_used": (
-                product
+                product_context
             ),
 
             "research_memory_used": (

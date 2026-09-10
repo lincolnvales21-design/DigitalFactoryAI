@@ -122,16 +122,6 @@ class AutonomousActionOrchestrator:
             "optimization_action"
         )
 
-        if not action:
-            action = decision.get(
-                "cycle_action"
-            )
-
-        if not action:
-            action = decision.get(
-                "action"
-            )
-
         product_id = decision.get(
             "product_id"
         )
@@ -222,18 +212,11 @@ class AutonomousActionOrchestrator:
             return (
                 f"Validar comercialmente o "
                 f"produto #{product_id} ({product}). "
-                "Analisar o desempenho comercial "
-                "já observado, sinais de demanda, "
-                "vendas confirmadas, pedidos pendentes, "
-                "posicionamento, oferta e potencial "
-                "de conversão. "
-                "Identificar os principais obstáculos "
-                "à compra e propor ações práticas "
-                "para aumentar conversão e distribuição. "
-                "Priorizar melhorias no produto vencedor "
-                "antes de criar novos produtos. "
-                "Não inventar depoimentos, vendas, "
-                "resultados ou evidências."
+                "Pesquisar evidências de demanda, "
+                "identificar sinais positivos e "
+                "negativos e determinar quais "
+                "ajustes devem ser realizados "
+                "antes de uma expansão."
             )
 
         # ----------------------------------------------------
@@ -273,14 +256,6 @@ class AutonomousActionOrchestrator:
             return result
 
         # ====================================================
-        # GARANTIR AGENTES CARREGADOS
-        # ====================================================
-
-        from app.agents.loader import load_agents
-
-        load_agents()
-
-        # ====================================================
         # OBTER DECISÃO
         # ====================================================
 
@@ -310,81 +285,13 @@ class AutonomousActionOrchestrator:
             decision = {}
 
         # ====================================================
-        # BARREIRA DE DECISÃO
-        # ====================================================
-
-        gate_decision = decision.get(
-            "gate_decision"
-        )
-
-        cycle_action = decision.get(
-            "cycle_action"
-        )
-
-        should_run = decision.get(
-            "should_run"
-        )
-
-        decision_reason = decision.get(
-            "reason",
-            "Decisão determinou aguardar."
-        )
-
-        if (
-            gate_decision in {"wait", "WAIT"}
-            or cycle_action in {"wait", "WAIT"}
-            or should_run is False
-        ):
-
-            result = {
-                "status": "waiting",
-                "executed": False,
-                "action": "wait",
-                "product_id": decision.get(
-                    "product_id"
-                ),
-                "reason": decision_reason,
-                "decision": decision,
-                "capital_policy": decision.get(
-                    "capital_policy"
-                ),
-            }
-
-            self._log(
-                action="wait",
-                agent=None,
-                product_id=decision.get(
-                    "product_id"
-                ),
-                status="waiting",
-                objective=decision.get(
-                    "objective"
-                ),
-                result=result,
-            )
-
-            return result
-
-        # ====================================================
         # AÇÃO
         # ====================================================
 
         action = decision.get(
-            "optimization_action"
+            "optimization_action",
+            "discover_opportunity"
         )
-
-        if not action:
-            action = decision.get(
-                "cycle_action"
-            )
-
-        if not action:
-            action = decision.get(
-                "action"
-            )
-
-        if not action:
-            action = "discover_opportunity"
 
         product_id = decision.get(
             "product_id"
@@ -530,51 +437,6 @@ class AutonomousActionOrchestrator:
                 agent_name,
                 objective,
             )
-
-            # ------------------------------------------------
-            # PROPAGAR FALHA DO AGENTE
-            # ------------------------------------------------
-
-            if (
-                isinstance(agent_result, dict)
-                and agent_result.get("status")
-                in {
-                    "error",
-                    "failed",
-                    "blocked",
-                }
-            ):
-
-                result = {
-                    "status": "failed",
-                    "executed": False,
-                    "action": action,
-                    "agent": agent_name,
-                    "product_id": product_id,
-                    "objective": objective,
-                    "agent_result": agent_result,
-                    "capital_policy": (
-                        execution_gate.get(
-                            "capital_policy"
-                        )
-                    ),
-                    "decision": decision,
-                }
-
-                self._log(
-                    action=action,
-                    agent=agent_name,
-                    product_id=product_id,
-                    status="failed",
-                    objective=objective,
-                    result=result,
-                )
-
-                return result
-
-            # ------------------------------------------------
-            # SUCESSO REAL DO AGENTE
-            # ------------------------------------------------
 
             result = {
                 "status": "executed",

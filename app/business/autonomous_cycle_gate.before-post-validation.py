@@ -257,40 +257,6 @@ class AutonomousCycleGate:
 
         if winner_id is not None and winner_sales == 1:
 
-            # ------------------------------------------------
-            # APÓS A VALIDAÇÃO, OTIMIZAR ANTES DE REPETIR
-            # ------------------------------------------------
-
-            recent = self._recent_decisions(
-                limit=self.MAX_REPEATED_DECISIONS
-            )
-
-            validated = any(
-                row[0] == "validate_product"
-                and row[1] == winner_id
-                for row in recent
-            )
-
-            if validated:
-
-                result = {
-                    "decision": "optimize_offer",
-                    "reason": (
-                        f"O produto #{winner_id} já passou pela "
-                        "etapa de validação e possui uma venda "
-                        "confirmada. A próxima prioridade é "
-                        "otimizar oferta e conversão antes de "
-                        "criar novas variações."
-                    ),
-                    "product_id": winner_id,
-                    "confidence": 0.80,
-                    "should_run": True,
-                    "pending_orders": pending_count,
-                }
-
-                self._save(result)
-                return result
-
             result = {
                 "decision": "validate_product",
                 "reason": (

@@ -642,7 +642,7 @@ class MarketingAgent(BaseAgent):
             "checkout": checkout,
 
             "product_memory_used": (
-                product
+                product_context
             ),
 
             "research_memory_used": (
