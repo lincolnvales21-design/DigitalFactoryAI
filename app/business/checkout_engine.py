@@ -143,7 +143,7 @@ class CheckoutEngine:
         payload = json.dumps({}).encode("utf-8")
 
         request = Request(
-            f"{os.getenv("DIGITALFACTORY_API_URL", "http://127.0.0.1:5000")}/payments/create/{order_id}",
+            f"{os.getenv("DIGITALFACTORY_API_URL", "http://127.0.0.1:" + os.getenv("PORT", "8000"))}/payments/create/{order_id}",
             data=payload,
             headers={
                 "Content-Type": "application/json"

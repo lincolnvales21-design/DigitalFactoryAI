@@ -131,29 +131,8 @@ async def acquisition_visit(
     if not base_url.startswith("http"):
         base_url = "https://" + base_url
 
-    from urllib.parse import urlencode
-
-    tracking_params = {
-        "channel": channel or "unknown",
-        "source": source or "",
-        "campaign": campaign or "",
-        "medium": medium or "",
-    }
-
-    tracking_params = {
-        key: value
-        for key, value in tracking_params.items()
-        if value
-    }
-
-    query = urlencode(tracking_params)
-
-    destination = f"{base_url}/sales/buy/{product_id}"
-    if query:
-        destination = f"{destination}?{query}"
-
     return RedirectResponse(
-        url=destination,
+        url=f"{base_url}/sales/product/{product_id}",
         status_code=302,
     )
 
