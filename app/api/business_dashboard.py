@@ -1213,7 +1213,7 @@ async function updateFactoryStatus() {{
     try {{
 
         const response =
-            await fetch('/factory/status');
+            await fetch('/autonomous/status');
 
         const data =
             await response.json();
