@@ -361,40 +361,7 @@ class OptimizationEngine:
     # PRÓXIMO MOVIMENTO
     # --------------------------------------------------------
 
-    def next_move(self, product_id=None, canonical_action=None):
-        # O Cycle Gate é a fonte soberana da decisão do ciclo.
-        # Quando ele fornece um produto, este método atua somente
-        # sobre esse produto e nunca seleciona outro.
-        if product_id is not None:
-            analysis = self.analyze_product(product_id)
-
-            if analysis.get("status") != "analyzed":
-                return {
-                    "status": "not_found",
-                    "product_id": product_id,
-                    "action": canonical_action or "wait",
-                    "reason": (
-                        "O produto definido pelo Cycle Gate "
-                        "não foi encontrado."
-                    ),
-                }
-
-            product = analysis["product"]
-
-            return {
-                "status": "decision",
-                "action": canonical_action or analysis["action"],
-                "product_id": product["id"],
-                "product": product["name"],
-                "reason": analysis["reason"],
-                "canonical": True,
-                "source": "cycle_gate",
-                "optimization_action": analysis["action"],
-                "priority": analysis["priority"],
-            }
-
-        # Compatibilidade: chamadas antigas sem produto continuam
-        # usando a análise global da Optimization Engine.
+    def next_move(self):
         analyses = self.analyze_all()
 
         if not analyses:

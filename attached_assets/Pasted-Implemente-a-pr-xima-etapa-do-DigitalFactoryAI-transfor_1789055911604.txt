@@ -1,0 +1,109 @@
+Implemente a próxima etapa do DigitalFactoryAI: transformar a observabilidade atual em um verdadeiro Controle Comercial Autônomo baseado exclusivamente em dados reais.
+
+OBJETIVO:
+O sistema deve acompanhar o desempenho comercial real e usar essas informações para orientar a próxima ação do ciclo autônomo, sem criar dados artificiais.
+
+REQUISITOS:
+
+1. PRODUTO VENCEDOR
+
+* Identificar explicitamente o produto com maior número de vendas pagas.
+* Mostrar product_id, nome, vendas pagas, pedidos totais e receita.
+* Se houver empate, usar receita como segundo critério.
+* Se não houver vendas pagas, informar claramente "Nenhum vencedor ainda".
+
+2. CONVERSÃO
+
+* Calcular conversão como pedidos pagos / pedidos totais.
+* Mostrar também o numerador e denominador usados no cálculo.
+* Não misturar essa conversão com visitas ou aquisição enquanto não existirem eventos reais de aquisição.
+* Se não houver pedidos, mostrar "Sem dados".
+
+3. FUNIL COMERCIAL
+   Criar uma visão consolidada:
+   publicação → aquisição/evento → pedido → pagamento → receita.
+
+Usar somente registros realmente existentes no banco e trackers.
+Não inventar visitas, cliques, pedidos, vendas ou receita.
+Quando uma etapa não tiver dados, mostrar "Sem dados ainda".
+
+4. PRÓXIMA AÇÃO
+   A observabilidade deve mostrar claramente:
+
+* decisão canônica atual do Cycle Gate;
+* produto-alvo;
+* próxima ação;
+* agente responsável;
+* motivo;
+* confiança;
+* status da execução.
+
+A próxima ação deve ser derivada da decisão canônica do Cycle Gate.
+
+5. ALINHAMENTO
+   Preservar a regra já corrigida:
+   Cycle Gate → Decision Loop → Action Orchestrator → Cycle Orchestrator → Observabilidade.
+
+Todos devem continuar usando a mesma decisão canônica.
+
+6. REGRAS COMERCIAIS
+   Manter:
+
+* 1 venda paga → validate_product;
+* depois de validação registrada → optimize_offer;
+* não criar automaticamente uma nova variação apenas por 1 venda;
+* 2 ou mais vendas pagas podem habilitar expansão conforme as regras existentes;
+* pedidos pendentes não bloqueiam crescimento.
+
+7. CAPITAL
+   Preservar integralmente:
+
+* abaixo de R$ 1.000 de receita gerada, nenhum gasto automático;
+* somente acima de R$ 1.000 pode existir gasto automático;
+* teto máximo de gasto automático: R$ 100;
+* proprietário continua controlando o capital.
+
+8. INSTAGRAM E PUBLICAÇÃO
+   Não alterar a lógica existente de publicação.
+   Não fazer publicação real durante os testes.
+   Não criar registros artificiais no Instagram.
+
+9. OBSERVABILIDADE
+   Adicionar à tela atual, sem remover o que já funciona:
+
+* Produto vencedor;
+* Receita;
+* Vendas pagas;
+* Pedidos pendentes;
+* Conversão;
+* Funil comercial;
+* Decisão canônica;
+* Próxima ação;
+* Agente responsável;
+* Status da execução.
+
+10. SEGURANÇA
+
+* Não expor tokens, secrets ou credenciais.
+* Não alterar autenticação existente.
+* Não alterar pagamentos.
+* Não alterar o Runtime autônomo.
+* Não alterar as regras de autonomia já validadas.
+
+11. TESTES
+    Antes de concluir:
+
+* criar backup das partes alteradas;
+* validar o workflow;
+* validar /observability;
+* validar /observability/data;
+* validar /autonomous-cycle/history;
+* confirmar que os dados vêm do SQLite/trackers reais;
+* confirmar que não foram criados pedidos ou vendas artificiais;
+* confirmar que não houve publicação real no Instagram;
+* confirmar que Cycle Gate, Decision Loop, Orchestrator e Observabilidade continuam com a mesma decisão;
+* confirmar que não houve exposição de secrets.
+
+Faça somente as alterações necessárias. Não refatore partes não relacionadas.
+
+Ao finalizar, apresente um resumo objetivo do que foi alterado e os resultados de cada validação.

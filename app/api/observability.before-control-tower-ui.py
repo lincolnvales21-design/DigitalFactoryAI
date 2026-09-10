@@ -645,41 +645,10 @@ OBSERVABILITY_HTML = r"""<!doctype html>
       </section>
 
       <div class="kpis span-2">
-        <section class="panel kpi">
-          <div class="metric-label">Pedidos</div>
-          <div id="orders-total" class="metric-value accent-blue">—</div>
-          <div class="section-note">total registrado</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Vendas</div>
-          <div id="orders-paid" class="metric-value accent-green">—</div>
-          <div class="section-note">pedidos pagos reais</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Receita BRL</div>
-          <div id="revenue" class="metric-value accent-purple">—</div>
-          <div class="section-note">pagamentos confirmados</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Pendentes</div>
-          <div id="orders-pending" class="metric-value accent-yellow">—</div>
-          <div class="section-note">aguardando pagamento</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Conversão geral</div>
-          <div id="conversion-general" class="metric-value accent-blue">—</div>
-          <div class="section-note">vendas ÷ pedidos</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Produto vencedor</div>
-          <div id="winner-product" class="metric-value accent-green" style="font-size:15px">—</div>
-          <div id="winner-detail" class="section-note">sem dados</div>
-        </section>
+        <section class="panel kpi"><div class="metric-label">Pedidos</div><div id="orders-total" class="metric-value accent-blue">—</div><div class="section-note">total registrado</div></section>
+        <section class="panel kpi"><div class="metric-label">Vendas</div><div id="orders-paid" class="metric-value accent-green">—</div><div class="section-note">pedidos pagos reais</div></section>
+        <section class="panel kpi"><div class="metric-label">Receita BRL</div><div id="revenue" class="metric-value accent-purple">—</div><div class="section-note">pagamentos confirmados</div></section>
+        <section class="panel kpi"><div class="metric-label">Pendentes</div><div id="orders-pending" class="metric-value accent-yellow">—</div><div class="section-note">aguardando pagamento</div></section>
       </div>
 
       <section class="panel">
@@ -747,33 +716,6 @@ OBSERVABILITY_HTML = r"""<!doctype html>
       text("orders-pending", business.pending_orders);
       text("revenue", fmtMoney(business.revenue_brl));
 
-      const generalConversion = Number(business.conversion_rate_percent || 0);
-      text(
-        "conversion-general",
-        Number.isFinite(generalConversion)
-          ? generalConversion.toLocaleString("pt-BR", {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 2
-            }) + "%"
-          : "—"
-      );
-
-      const winner = business.winner || null;
-
-      if (winner) {
-        text("winner-product", `#${winner.product_id} · ${winner.product_name || "sem nome"}`);
-        text(
-          "winner-detail",
-          `${winner.paid_orders || 0} venda(s) · ${Number(winner.conversion_rate_percent || 0).toLocaleString("pt-BR", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2
-          })}% conversão · ${fmtMoney(winner.revenue || 0)}`
-        );
-      } else {
-        text("winner-product", "Nenhum vencedor");
-        text("winner-detail", "Ainda não há vendas confirmadas.");
-      }
-
       const decision = data.decision || {};
       const box = $("decision-content");
       box.replaceChildren();
@@ -782,13 +724,6 @@ OBSERVABILITY_HTML = r"""<!doctype html>
       } else {
         const label = document.createElement("div"); label.className = "decision-label"; label.textContent = `Ciclo ${decision.cycle_number ?? "—"} · ${decision.status ?? "—"}`; box.append(label);
         const value = document.createElement("div"); value.className = "decision-value"; value.textContent = clean(decision.value || "sem dados ainda"); box.append(value);
-
-        const next = document.createElement("div");
-        next.className = "policy-note";
-        next.style.marginTop = "12px";
-        next.innerHTML = "<strong>Próxima ação:</strong> " + clean(decision.value || "aguardando decisão");
-        box.append(next);
-
         const reason = document.createElement("div"); reason.className = "reason"; reason.textContent = decision.reason || "Sem dados ainda."; box.append(reason);
         const tags = document.createElement("div"); tags.className = "tags";
         [

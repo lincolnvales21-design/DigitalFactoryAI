@@ -105,63 +105,12 @@ def _business_metrics(finance):
         total_orders = connection.execute(
             "SELECT COUNT(*) FROM orders"
         ).fetchone()[0]
-
         pending_orders = connection.execute(
             "SELECT COUNT(*) FROM orders WHERE status = 'pending'"
         ).fetchone()[0]
-
         total_products = connection.execute(
             "SELECT COUNT(*) FROM products"
         ).fetchone()[0]
-
-        # ------------------------------------------------
-        # VENCEDOR COMERCIAL
-        # ------------------------------------------------
-        # Métrica comercial para observabilidade.
-        # Não substitui nem altera a decisão soberana
-        # do Cycle Gate.
-        rows = connection.execute(
-            """
-            SELECT
-                p.id,
-                p.name,
-                p.price,
-                p.currency,
-                p.status,
-                COUNT(o.id) AS total_orders,
-                SUM(
-                    CASE
-                        WHEN o.status = 'paid' THEN 1
-                        ELSE 0
-                    END
-                ) AS paid_orders,
-                SUM(
-                    CASE
-                        WHEN o.status = 'pending' THEN 1
-                        ELSE 0
-                    END
-                ) AS pending_orders,
-                COALESCE(
-                    SUM(
-                        CASE
-                            WHEN o.status = 'paid'
-                            THEN o.amount
-                            ELSE 0
-                        END
-                    ),
-                    0
-                ) AS revenue
-            FROM products p
-            LEFT JOIN orders o
-                ON o.product_id = p.id
-            GROUP BY
-                p.id,
-                p.name,
-                p.price,
-                p.currency,
-                p.status
-            """
-        ).fetchall()
     finally:
         connection.close()
 
@@ -171,81 +120,16 @@ def _business_metrics(finance):
         None,
     )
 
-    paid_orders = finance.get("financial_summary", {}).get(
-        "paid_orders",
-        0,
-    )
-
-    winner = None
-
-    candidates = []
-
-    for row in rows:
-        (
-            product_id,
-            product_name,
-            price,
-            currency,
-            status,
-            product_total_orders,
-            product_paid_orders,
-            product_pending_orders,
-            product_revenue,
-        ) = row
-
-        product_total_orders = int(product_total_orders or 0)
-        product_paid_orders = int(product_paid_orders or 0)
-        product_pending_orders = int(product_pending_orders or 0)
-        product_revenue = round(float(product_revenue or 0), 2)
-
-        if product_paid_orders > 0:
-            conversion = round(
-                product_paid_orders
-                / product_total_orders
-                * 100,
-                2,
-            ) if product_total_orders else 0.0
-
-            candidates.append(
-                {
-                    "product_id": product_id,
-                    "product_name": product_name,
-                    "price": price,
-                    "currency": currency,
-                    "status": status,
-                    "paid_orders": product_paid_orders,
-                    "total_orders": product_total_orders,
-                    "pending_orders": product_pending_orders,
-                    "revenue": product_revenue,
-                    "conversion_rate_percent": conversion,
-                }
-            )
-
-    candidates.sort(
-        key=lambda item: (
-            item["paid_orders"],
-            item["revenue"],
-        ),
-        reverse=True,
-    )
-
-    if candidates:
-        winner = candidates[0]
-
-    total_conversion = round(
-        paid_orders / total_orders * 100,
-        2,
-    ) if total_orders else 0.0
-
     return {
         "total_orders": total_orders,
         "pending_orders": pending_orders,
-        "paid_orders": paid_orders,
+        "paid_orders": finance.get("financial_summary", {}).get(
+            "paid_orders",
+            0,
+        ),
         "total_products": total_products,
         "revenue_brl": float((brl or {}).get("gross_revenue", 0) or 0),
         "currencies": currencies,
-        "conversion_rate_percent": total_conversion,
-        "winner": winner,
     }
 
 
@@ -645,41 +529,10 @@ OBSERVABILITY_HTML = r"""<!doctype html>
       </section>
 
       <div class="kpis span-2">
-        <section class="panel kpi">
-          <div class="metric-label">Pedidos</div>
-          <div id="orders-total" class="metric-value accent-blue">—</div>
-          <div class="section-note">total registrado</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Vendas</div>
-          <div id="orders-paid" class="metric-value accent-green">—</div>
-          <div class="section-note">pedidos pagos reais</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Receita BRL</div>
-          <div id="revenue" class="metric-value accent-purple">—</div>
-          <div class="section-note">pagamentos confirmados</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Pendentes</div>
-          <div id="orders-pending" class="metric-value accent-yellow">—</div>
-          <div class="section-note">aguardando pagamento</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Conversão geral</div>
-          <div id="conversion-general" class="metric-value accent-blue">—</div>
-          <div class="section-note">vendas ÷ pedidos</div>
-        </section>
-
-        <section class="panel kpi">
-          <div class="metric-label">Produto vencedor</div>
-          <div id="winner-product" class="metric-value accent-green" style="font-size:15px">—</div>
-          <div id="winner-detail" class="section-note">sem dados</div>
-        </section>
+        <section class="panel kpi"><div class="metric-label">Pedidos</div><div id="orders-total" class="metric-value accent-blue">—</div><div class="section-note">total registrado</div></section>
+        <section class="panel kpi"><div class="metric-label">Vendas</div><div id="orders-paid" class="metric-value accent-green">—</div><div class="section-note">pedidos pagos reais</div></section>
+        <section class="panel kpi"><div class="metric-label">Receita BRL</div><div id="revenue" class="metric-value accent-purple">—</div><div class="section-note">pagamentos confirmados</div></section>
+        <section class="panel kpi"><div class="metric-label">Pendentes</div><div id="orders-pending" class="metric-value accent-yellow">—</div><div class="section-note">aguardando pagamento</div></section>
       </div>
 
       <section class="panel">
@@ -747,33 +600,6 @@ OBSERVABILITY_HTML = r"""<!doctype html>
       text("orders-pending", business.pending_orders);
       text("revenue", fmtMoney(business.revenue_brl));
 
-      const generalConversion = Number(business.conversion_rate_percent || 0);
-      text(
-        "conversion-general",
-        Number.isFinite(generalConversion)
-          ? generalConversion.toLocaleString("pt-BR", {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 2
-            }) + "%"
-          : "—"
-      );
-
-      const winner = business.winner || null;
-
-      if (winner) {
-        text("winner-product", `#${winner.product_id} · ${winner.product_name || "sem nome"}`);
-        text(
-          "winner-detail",
-          `${winner.paid_orders || 0} venda(s) · ${Number(winner.conversion_rate_percent || 0).toLocaleString("pt-BR", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2
-          })}% conversão · ${fmtMoney(winner.revenue || 0)}`
-        );
-      } else {
-        text("winner-product", "Nenhum vencedor");
-        text("winner-detail", "Ainda não há vendas confirmadas.");
-      }
-
       const decision = data.decision || {};
       const box = $("decision-content");
       box.replaceChildren();
@@ -782,13 +608,6 @@ OBSERVABILITY_HTML = r"""<!doctype html>
       } else {
         const label = document.createElement("div"); label.className = "decision-label"; label.textContent = `Ciclo ${decision.cycle_number ?? "—"} · ${decision.status ?? "—"}`; box.append(label);
         const value = document.createElement("div"); value.className = "decision-value"; value.textContent = clean(decision.value || "sem dados ainda"); box.append(value);
-
-        const next = document.createElement("div");
-        next.className = "policy-note";
-        next.style.marginTop = "12px";
-        next.innerHTML = "<strong>Próxima ação:</strong> " + clean(decision.value || "aguardando decisão");
-        box.append(next);
-
         const reason = document.createElement("div"); reason.className = "reason"; reason.textContent = decision.reason || "Sem dados ainda."; box.append(reason);
         const tags = document.createElement("div"); tags.className = "tags";
         [

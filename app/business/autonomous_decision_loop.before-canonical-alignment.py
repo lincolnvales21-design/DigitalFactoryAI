@@ -71,14 +71,7 @@ class AutonomousDecisionLoop:
             revenue = {}
 
         try:
-            # O Cycle Gate é soberano.
-            # A Optimization Engine fornece apenas contexto
-            # e deve analisar o mesmo produto quando o Gate
-            # já definiu um alvo.
-            optimization = optimization_engine.next_move(
-                product_id=gate.get("product_id"),
-                canonical_action=gate_decision,
-            )
+            optimization = optimization_engine.next_move()
         except Exception:
             optimization = {}
 
@@ -114,24 +107,9 @@ class AutonomousDecisionLoop:
 
         if product_id is not None:
             try:
-                # Nunca aceitar um produto diferente daquele
-                # definido soberanamente pelo Cycle Gate.
-                if optimization.get("product_id") == product_id:
-                    product = optimization.get("product")
+                product = optimization.get("product")
             except Exception:
                 product = None
-
-            if product is None:
-                try:
-                    conn = self._connect()
-                    row = conn.execute(
-                        "SELECT name FROM products WHERE id = ?",
-                        (product_id,),
-                    ).fetchone()
-                    conn.close()
-                    product = row[0] if row else None
-                except Exception:
-                    product = None
 
         # ----------------------------------------------------
         # DECISÃO FINAL
