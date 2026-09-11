@@ -29,6 +29,11 @@ class PublicationTracker:
                     medium TEXT,
                     external_id TEXT,
                     views INTEGER DEFAULT 0,
+                    reach INTEGER DEFAULT 0,
+                    likes INTEGER DEFAULT 0,
+                    comments INTEGER DEFAULT 0,
+                    saved INTEGER DEFAULT 0,
+                    shares INTEGER DEFAULT 0,
                     clicks INTEGER DEFAULT 0,
                     orders INTEGER DEFAULT 0,
                     sales INTEGER DEFAULT 0,
@@ -56,6 +61,33 @@ class PublicationTracker:
 
     def __init__(self):
         self._ensure_tables()
+        self._ensure_metrics_columns()
+
+    def _ensure_metrics_columns(self):
+        columns = {
+            "reach": "INTEGER DEFAULT 0",
+            "likes": "INTEGER DEFAULT 0",
+            "comments": "INTEGER DEFAULT 0",
+            "saved": "INTEGER DEFAULT 0",
+            "shares": "INTEGER DEFAULT 0",
+        }
+
+        with self._connect() as conn:
+            existing = {
+                row["name"]
+                for row in conn.execute(
+                    "PRAGMA table_info(publication_records)"
+                ).fetchall()
+            }
+
+            for name, definition in columns.items():
+                if name not in existing:
+                    conn.execute(
+                        f"ALTER TABLE publication_records "
+                        f"ADD COLUMN {name} {definition}"
+                    )
+
+            conn.commit()
 
     def log_activity(
         self,
@@ -181,6 +213,11 @@ class PublicationTracker:
         sales=0,
         revenue=0,
         currency="BRL",
+        reach=0,
+        likes=0,
+        comments=0,
+        saved=0,
+        shares=0,
     ):
         with self._connect() as conn:
 
@@ -189,6 +226,11 @@ class PublicationTracker:
                 UPDATE publication_records
                 SET
                     views = ?,
+                    reach = ?,
+                    likes = ?,
+                    comments = ?,
+                    saved = ?,
+                    shares = ?,
                     clicks = ?,
                     orders = ?,
                     sales = ?,
@@ -198,6 +240,11 @@ class PublicationTracker:
                 """,
                 (
                     int(views or 0),
+                    int(reach or 0),
+                    int(likes or 0),
+                    int(comments or 0),
+                    int(saved or 0),
+                    int(shares or 0),
                     int(clicks or 0),
                     int(orders or 0),
                     int(sales or 0),

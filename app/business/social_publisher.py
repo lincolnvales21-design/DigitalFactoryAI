@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import requests
+import time
 
 from app.business.publication_tracker import publication_tracker
 from app.business.acquisition_tracker import acquisition_tracker
@@ -218,6 +219,52 @@ class SocialPublisher:
                     "container": container,
                 }
 
+            # O Instagram pode precisar de alguns segundos para processar
+            # o container antes de aceitar media_publish.
+            # Fazemos polling controlado para evitar o erro 9007/2207027.
+            container_ready = False
+            last_status = None
+
+            for attempt in range(10):
+                status_response = requests.get(
+                    f"{GRAPH_URL}/{creation_id}",
+                    params={
+                        "fields": "status_code",
+                        "access_token": token,
+                    },
+                    timeout=30,
+                )
+
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    last_status = status_data.get("status_code")
+
+                    if last_status == "FINISHED":
+                        container_ready = True
+                        break
+
+                    if last_status in {"ERROR", "EXPIRED"}:
+                        return {
+                            "status": "failed",
+                            "product_id": int(product_id),
+                            "stage": "container",
+                            "creation_id": creation_id,
+                            "container_status": last_status,
+                            "error": status_response.text,
+                        }
+
+                time.sleep(3)
+
+            if not container_ready:
+                return {
+                    "status": "failed",
+                    "product_id": int(product_id),
+                    "stage": "container",
+                    "creation_id": creation_id,
+                    "container_status": last_status,
+                    "reason": "Container do Instagram não ficou pronto dentro do tempo limite.",
+                }
+
             publish_response = requests.post(
                 f"{GRAPH_URL}/me/media_publish",
                 params={
@@ -295,6 +342,109 @@ class SocialPublisher:
             return {
                 "status": "failed",
                 "product_id": int(product_id),
+                "reason": str(exc),
+            }
+
+
+    async def sync_insights(self, publication_id, tracker_publication_id):
+        """
+        Sincroniza Insights reais do Instagram com o publication_tracker.
+        """
+        insights = await self.get_insights(publication_id)
+
+        if insights.get("status") != "success":
+            return insights
+
+        from app.business.publication_tracker import publication_tracker
+
+        acquisition = publication_tracker.publication_metrics(
+            tracker_publication_id
+        )
+
+        publication_tracker.update_metrics(
+            tracker_publication_id,
+            views=insights.get("views", 0),
+            clicks=acquisition.get("visits", 0),
+            orders=acquisition.get("orders", 0),
+            sales=acquisition.get("sales", 0),
+            revenue=acquisition.get("revenue", 0),
+            currency=acquisition.get("currency", "BRL"),
+            reach=insights.get("reach", 0),
+            likes=insights.get("likes", 0),
+            comments=insights.get("comments", 0),
+            saved=insights.get("saved", 0),
+            shares=insights.get("shares", 0),
+        )
+
+        return {
+            "status": "success",
+            "publication_id": str(publication_id),
+            "tracker_publication_id": tracker_publication_id,
+            "instagram": insights,
+            "acquisition": acquisition,
+        }
+
+    async def get_insights(self, publication_id):
+        """
+        Consulta os Insights reais de uma publicação do Instagram.
+        Não publica nem altera o conteúdo.
+        """
+        token = self._get_token()
+
+        if not token:
+            return {
+                "status": "blocked",
+                "publication_id": str(publication_id),
+                "reason": "INSTAGRAM_ACCESS_TOKEN não configurado.",
+            }
+
+        metrics = "reach,views,likes,comments,saved,shares"
+
+        try:
+            response = requests.get(
+                f"{GRAPH_URL}/{publication_id}/insights",
+                params={
+                    "metric": metrics,
+                    "access_token": token,
+                },
+                timeout=30,
+            )
+
+            if response.status_code != 200:
+                return {
+                    "status": "failed",
+                    "publication_id": str(publication_id),
+                    "http_status": response.status_code,
+                    "error": response.text,
+                }
+
+            data = response.json().get("data", [])
+
+            insights = {}
+
+            for item in data:
+                name = item.get("name")
+                values = item.get("values") or []
+
+                if name and values:
+                    insights[name] = values[-1].get("value", 0)
+
+            return {
+                "status": "success",
+                "platform": "instagram",
+                "publication_id": str(publication_id),
+                "reach": int(insights.get("reach", 0) or 0),
+                "views": int(insights.get("views", 0) or 0),
+                "likes": int(insights.get("likes", 0) or 0),
+                "comments": int(insights.get("comments", 0) or 0),
+                "saved": int(insights.get("saved", 0) or 0),
+                "shares": int(insights.get("shares", 0) or 0),
+            }
+
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "publication_id": str(publication_id),
                 "reason": str(exc),
             }
 
