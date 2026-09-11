@@ -850,8 +850,9 @@ th {{
     padding: 14px;
     margin: 12px 0;
     border-radius: 10px;
-    background: #f5f5f5;
-    border: 1px solid #ddd;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #334155;
     line-height: 1.5;
 }}
 
