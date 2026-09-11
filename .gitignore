@@ -28,3 +28,5 @@ generated_products/
 
 # Logs
 *.log
+
+digitalfactory.db.backup-before-reset
