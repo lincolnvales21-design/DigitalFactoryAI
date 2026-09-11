@@ -100,41 +100,52 @@ class OfferEngine:
             )
 
             positioning = (
-                f"{offer_name} posicionada como uma solução "
-                f"prática para {audience}, com foco em "
-                f"resolver {problem} e aumentar a conversão."
+                f"{offer_name} apresentada de forma simples, "
+                f"prática e orientada a resultado, mostrando "
+                f"parte do método sem entregar o conteúdo completo."
             )
 
             promise = (
-                f"Ajudar {audience} a resolver {problem} "
-                f"de forma prática, clara e estruturada."
+                "Você vai descobrir uma forma mais clara de "
+                "entender o problema, evitar erros comuns e "
+                "começar a aplicar uma solução prática."
             )
 
             core_benefit = (
-                f"Aplicar {mechanism} para transformar "
-                f"{problem} em um plano de ação."
+                f"Conhecer o princípio por trás do {mechanism} "
+                f"e entender como aplicá-lo na prática."
             )
 
             benefits = [
-                f"Aplicação prática para resolver {problem}.",
-                f"Orientação direcionada para {audience}.",
-                "Passo a passo estruturado.",
-                "Checklist de implementação.",
-                "Plano de ação para colocar o método em prática.",
+                "Uma amostra prática do conteúdo.",
+                "Um passo importante para começar.",
+                "Orientação clara e organizada.",
+                "Checklist para facilitar a aplicação.",
+                "Plano de ação para continuar depois da amostra.",
             ]
 
             sales_copy = (
-                f"{offer_name}\n\n"
-                f"{promise}\n\n"
-                f"Desenvolvido para {audience}.\n\n"
+                f"Você já percebeu como é fácil saber o que "
+                f"precisa ser feito, mas travar na hora de colocar "
+                f"em prática?\n\n"
+                f"Aqui está uma pequena parte do que você vai "
+                f"encontrar neste material: uma abordagem simples, "
+                f"prática e organizada para sair da dúvida e começar "
+                f"a agir.\n\n"
+                f"Essa é apenas uma amostra. O conteúdo completo "
+                f"aprofunda o método, apresenta o passo a passo, "
+                f"checklists e orientações para você aplicar por conta "
+                f"própria.\n\n"
+                f"Se esta pequena parte já ajudou, imagine ter o "
+                f"material completo em mãos.\n\n"
                 f"Você recebe:\n"
                 f"• {benefits[0]}\n"
                 f"• {benefits[1]}\n"
                 f"• {benefits[2]}\n"
                 f"• {benefits[3]}\n"
                 f"• {benefits[4]}\n\n"
-                f"Esta oferta está sendo otimizada com base "
-                f"em dados comerciais reais."
+                f"Conheça o conteúdo completo e veja como colocar "
+                f"o método em prática."
             )
 
             commercial_thesis = (
@@ -155,8 +166,8 @@ class OfferEngine:
             )
 
             urgency = (
-                f"Comece agora e transforme {problem} "
-                f"em um plano de ação."
+                "Veja uma pequena parte agora e descubra o que "
+                "você ainda pode aprender no conteúdo completo."
             )
 
             objection_handling = [
@@ -184,12 +195,12 @@ class OfferEngine:
             ]
 
             traffic_angles = [
-                f"Como resolver {problem}",
-                "Erro comum",
-                "Antes e depois",
-                "Passo prático",
-                "Diagnóstico",
-                "Checklist gratuito",
+                "Você está cometendo este erro sem perceber?",
+                "Um passo simples que pode mudar sua abordagem",
+                "Veja uma pequena parte do método",
+                "O que ninguém explica sobre este problema",
+                "Antes de comprar, veja esta amostra",
+                "Descubra o que existe no conteúdo completo",
             ]
 
             validation_plan = [
