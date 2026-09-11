@@ -4,6 +4,8 @@ from pathlib import Path
 import requests
 
 from app.business.publication_tracker import publication_tracker
+from app.business.acquisition_tracker import acquisition_tracker
+from app.business.organic_distribution_engine import organic_distribution_engine
 
 
 GRAPH_URL = "https://graph.instagram.com"
@@ -107,7 +109,7 @@ class SocialPublisher:
             f"/instagram/media/{int(product_id)}"
         )
 
-    async def publish(self, product, offer):
+    async def publish(self, product, offer, variation=None):
         product_id = (
             product.get("id")
             or product.get("product_id")
@@ -145,10 +147,44 @@ class SocialPublisher:
                 "reason": "DIGITALFACTORY_PUBLIC_URL não configurada.",
             }
 
-        caption = self._build_caption(
-            product,
-            offer,
+        if variation:
+            tracking_url = variation.get("tracking_url")
+            medium = variation.get("medium") or "organic_social"
+        else:
+            acquisition = acquisition_tracker.generate_link(
+                product_id=int(product_id),
+                channel="instagram",
+                source="instagram",
+                campaign=f"produto-{int(product_id)}",
+                medium="organic_social",
+                base_url=self.public_url,
+            )
+
+            tracking_url = acquisition.get("tracking_url")
+            medium = "organic_social"
+
+        if not tracking_url:
+            return {
+                "status": "blocked",
+                "product_id": int(product_id),
+                "reason": "Não foi possível gerar URL de aquisição.",
+            }
+
+        caption = (
+            variation.get("caption")
+            if variation
+            else self._build_caption(
+                product,
+                offer,
+            )
         )
+
+        if not caption:
+            return {
+                "status": "blocked",
+                "product_id": int(product_id),
+                "reason": "Conteúdo orgânico vazio.",
+            }
 
         try:
             create_response = requests.post(
@@ -209,10 +245,10 @@ class SocialPublisher:
                 channel="instagram",
                 title=product.get("name"),
                 content=caption,
-                tracking_url=image_url,
+                tracking_url=tracking_url,
                 source="instagram",
                 campaign="autonomous_factory",
-                medium="organic_social",
+                medium=medium,
                 status="published",
                 external_id=(
                     str(publication_id)
@@ -235,6 +271,9 @@ class SocialPublisher:
                     "publication_id": publication_id,
                     "image_url": image_url,
                     "channel": "instagram",
+                    "content_type": variation.get("content_type") if variation else "default",
+                    "title": variation.get("title") if variation else None,
+                    "medium": medium,
                 },
             )
 
@@ -245,7 +284,10 @@ class SocialPublisher:
                 "creation_id": creation_id,
                 "publication_id": publication_id,
                 "image_url": image_url,
+                "tracking_url": tracking_url,
                 "caption": caption,
+                "content_type": variation.get("content_type") if variation else "default",
+                "medium": medium,
                 "tracker": tracker,
             }
 

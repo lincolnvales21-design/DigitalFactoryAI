@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+import json
+
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 import sqlite3
 from pathlib import Path
@@ -15,6 +17,292 @@ def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _parse_json(value):
+    if not value:
+        return None
+
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _generated_files(product_id):
+    root = Path("generated_products")
+    if not root.exists():
+        return []
+
+    prefix = f"product_{product_id}"
+    files = []
+
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or prefix not in path.name:
+            continue
+
+        relative = path.as_posix()
+        files.append({
+            "name": path.name,
+            "path": relative,
+            "type": path.suffix.lstrip(".") or "arquivo",
+            "available": True,
+        })
+
+    return files
+
+
+def _product_detail(product_id):
+    conn = get_db()
+
+    product = conn.execute(
+        """
+        SELECT
+            id,
+            name,
+            description,
+            product_type,
+            price,
+            currency,
+            status,
+            created_at
+        FROM products
+        WHERE id = ?
+        """,
+        (product_id,),
+    ).fetchone()
+
+    if not product:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    offer_row = conn.execute(
+        """
+        SELECT offer_json, status, created_at, updated_at
+        FROM product_offers
+        WHERE product_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (product_id,),
+    ).fetchone()
+
+    # O pagamento real é a confirmação usada para métricas comerciais.
+    real_paid = """
+        o.status = 'paid'
+        AND EXISTS (
+            SELECT 1
+            FROM payments payment
+            WHERE payment.order_id = o.id
+              AND payment.status = 'paid'
+              AND LOWER(COALESCE(payment.gateway, '')) NOT IN (
+                  'test',
+                  'test_paid'
+              )
+        )
+    """
+
+    metrics = conn.execute(
+        f"""
+        SELECT
+            COUNT(*) AS total_orders,
+            SUM(CASE WHEN o.status = 'pending' THEN 1 ELSE 0 END)
+                AS pending_orders,
+            SUM(CASE WHEN {real_paid} THEN 1 ELSE 0 END)
+                AS paid_orders,
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN {real_paid} THEN o.amount
+                        ELSE 0
+                    END
+                ),
+                0
+            ) AS revenue,
+            COUNT(
+                DISTINCT CASE
+                    WHEN {real_paid} THEN o.customer_email
+                END
+            ) AS buyers
+        FROM orders o
+        WHERE o.product_id = ?
+        """,
+        (product_id,),
+    ).fetchone()
+
+    acquisition_events = conn.execute(
+        """
+        SELECT
+            id,
+            event_type,
+            channel,
+            source,
+            campaign,
+            medium,
+            order_id,
+            amount,
+            currency,
+            created_at
+        FROM acquisition_events
+        WHERE product_id = ?
+        ORDER BY id DESC
+        """,
+        (product_id,),
+    ).fetchall()
+
+    try:
+        action_rows = conn.execute(
+            """
+            SELECT
+                id,
+                action,
+                agent,
+                product_id,
+                status,
+                objective,
+                created_at
+            FROM autonomous_action_runs
+            WHERE product_id = ?
+            ORDER BY id DESC
+            LIMIT 100
+            """,
+            (product_id,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        action_rows = []
+
+    conn.close()
+
+    offer = _parse_json(offer_row["offer_json"]) if offer_row else None
+    publications = publication_tracker.list_publications(product_id)
+
+    for publication in publications:
+        try:
+            publication.update(
+                publication_tracker.publication_metrics(
+                    publication["id"]
+                )
+            )
+        except Exception:
+            publication.update({
+                "visits": 0,
+                "orders": 0,
+                "sales": 0,
+                "revenue": 0,
+            })
+
+    activities = publication_tracker.list_activities(
+        product_id=product_id,
+        limit=100,
+    )
+
+    timeline = [
+        {
+            "kind": "ação do agente",
+            "title": row["action"] or "Ação autônoma",
+            "description": row["objective"] or "Sem descrição registrada.",
+            "agent": row["agent"],
+            "status": row["status"],
+            "created_at": row["created_at"],
+        }
+        for row in action_rows
+    ]
+    timeline.extend(
+        {
+            "kind": "atividade de fabricação",
+            "title": item.get("title") or "Atividade registrada",
+            "description": item.get(
+                "description"
+            ) or "Sem descrição registrada.",
+            "agent": None,
+            "status": item.get("status"),
+            "created_at": item.get("created_at"),
+        }
+        for item in activities
+    )
+    timeline.sort(
+        key=lambda item: item.get("created_at") or "",
+        reverse=True,
+    )
+
+    total_orders = int(metrics["total_orders"] or 0)
+    paid_orders = int(metrics["paid_orders"] or 0)
+    conversion = (
+        round((paid_orders / total_orders) * 100, 2)
+        if total_orders
+        else None
+    )
+
+    product_data = dict(product)
+    offer_data = dict(offer) if isinstance(offer, dict) else None
+    has_sales_page = bool(
+        offer_data
+        and product_data.get("status") == "published"
+    )
+
+    return {
+        "product": product_data,
+        "offer": offer_data,
+        "offer_record": (
+            {
+                "status": offer_row["status"],
+                "created_at": offer_row["created_at"],
+                "updated_at": offer_row["updated_at"],
+            }
+            if offer_row
+            else None
+        ),
+        "files": _generated_files(product_id),
+        "timeline": timeline,
+        "publications": publications,
+        "acquisition": {
+            "events": [dict(row) for row in acquisition_events],
+            "summary": {
+                "events": len(acquisition_events),
+                "orders": len({
+                    row["order_id"]
+                    for row in acquisition_events
+                    if row["order_id"] is not None
+                }),
+                "revenue": sum(
+                    float(row["amount"] or 0)
+                    for row in acquisition_events
+                    if row["event_type"] == "sale"
+                ),
+            },
+        },
+        "metrics": {
+            "total_orders": total_orders,
+            "paid_orders": paid_orders,
+            "pending_orders": int(metrics["pending_orders"] or 0),
+            "buyers": int(metrics["buyers"] or 0),
+            "revenue": float(metrics["revenue"] or 0),
+            "conversion_percent": conversion,
+        },
+        "links": {
+            "public_sales": (
+                f"/sales/buy/{product_id}"
+                if has_sales_page
+                else None
+            ),
+            "tracking": [
+                {
+                    "url": publication.get("tracking_url"),
+                    "channel": publication.get("channel"),
+                    "campaign": publication.get("campaign"),
+                    "source": publication.get("source"),
+                    "medium": publication.get("medium"),
+                }
+                for publication in publications
+                if publication.get("tracking_url")
+            ],
+        },
+    }
+
+
+@router.get("/business/dashboard/products/{product_id}/detail")
+def business_product_detail(product_id: int):
+    return _product_detail(product_id)
 
 
 @router.get("/business/dashboard", response_class=HTMLResponse)

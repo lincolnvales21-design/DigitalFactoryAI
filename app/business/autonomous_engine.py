@@ -10,6 +10,7 @@ from app.business.novelty_engine import novelty_engine
 from app.business.offer_engine import offer_engine
 from app.business.sales_engine import sales_engine
 from app.business.social_publisher import social_publisher
+from app.business.organic_distribution_engine import organic_distribution_engine
 from app.business.learning_engine import learning_engine
 from app.business.engine import business_engine
 from app.products.factory import product_factory
@@ -474,14 +475,57 @@ class AutonomousBusinessEngine:
                                 ),
                             }
 
-                            social_result = (
-                                await social_publisher.publish(
-                                    product=social_product,
+                            # ------------------------------------------------
+                            # DISTRIBUIÇÃO ORGÂNICA INTELIGENTE
+                            # ------------------------------------------------
+                            # Escolhe automaticamente a próxima variação
+                            # ainda não publicada para este produto.
+
+                            organic_variation = (
+                                organic_distribution_engine.next_variation(
+                                    product_id=int(product_id),
                                     offer=offer_result,
+                                    product=social_product,
                                 )
                             )
 
-                            publication_result["social"] = social_result
+                            if organic_variation:
+
+                                social_result = (
+                                    await social_publisher.publish(
+                                        product=social_product,
+                                        offer=offer_result,
+                                        variation=organic_variation,
+                                    )
+                                )
+
+                                publication_result["social"] = social_result
+                                publication_result["organic_variation"] = {
+                                    "content_type": organic_variation.get(
+                                        "content_type"
+                                    ),
+                                    "title": organic_variation.get(
+                                        "title"
+                                    ),
+                                    "medium": organic_variation.get(
+                                        "medium"
+                                    ),
+                                    "tracking_url": organic_variation.get(
+                                        "tracking_url"
+                                    ),
+                                }
+
+                            else:
+
+                                publication_result["social"] = {
+                                    "status": "skipped",
+                                    "product_id": int(product_id),
+                                    "reason": (
+                                        "Todas as variações orgânicas "
+                                        "disponíveis para este produto "
+                                        "já foram publicadas."
+                                    ),
+                                }
 
                 if isinstance(result, dict):
 

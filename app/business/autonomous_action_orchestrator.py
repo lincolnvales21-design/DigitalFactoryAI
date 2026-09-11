@@ -18,6 +18,10 @@ from app.business.emergency_shutdown import (
     emergency_shutdown
 )
 
+from app.business.sales_engine import sales_engine
+from app.business.organic_distribution_engine import organic_distribution_engine
+from app.business.social_publisher import social_publisher
+
 
 class AutonomousActionOrchestrator:
     """
@@ -592,6 +596,107 @@ class AutonomousActionOrchestrator:
                 ),
                 "decision": decision,
             }
+
+            # ------------------------------------------------
+            # DISTRIBUIÇÃO ORGÂNICA
+            # ------------------------------------------------
+            # A ação comercial continua sendo soberana.
+            # A publicação social é uma etapa secundária:
+            # falha no Instagram não invalida a ação do agente.
+            #
+            # Usa a oferta ATIVA real do SalesEngine.
+            # Não cria oferta artificial nem nova oferta.
+
+            organic_distribution = {
+                "status": "skipped",
+                "reason": "ação sem produto comercial",
+            }
+
+            commercial_actions = {
+                "validate_product",
+                "validate_before_expansion",
+                "optimize_offer",
+                "optimize_conversion",
+                "expand_winner",
+                "expand_product",
+                "create_variation",
+                "create_product_variation",
+            }
+
+            if product_id and action in commercial_actions:
+                try:
+                    active_offer = sales_engine.get_offer(
+                        int(product_id)
+                    )
+
+                    if isinstance(active_offer, dict):
+                        product_name = (
+                            decision.get("product")
+                            or active_offer.get("offer_name")
+                            or "Produto Digital"
+                        )
+
+                        social_product = {
+                            "id": int(product_id),
+                            "name": product_name,
+                        }
+
+                        variation = (
+                            organic_distribution_engine.next_variation(
+                                product_id=int(product_id),
+                                offer=active_offer,
+                                product=social_product,
+                            )
+                        )
+
+                        if variation:
+                            social_result = await social_publisher.publish(
+                                product=social_product,
+                                offer=active_offer,
+                                variation=variation,
+                            )
+
+                            organic_distribution = {
+                                "status": social_result.get(
+                                    "status",
+                                    "unknown",
+                                ),
+                                "content_type": variation.get(
+                                    "content_type"
+                                ),
+                                "title": variation.get(
+                                    "title"
+                                ),
+                                "medium": variation.get(
+                                    "medium"
+                                ),
+                                "tracking_url": variation.get(
+                                    "tracking_url"
+                                ),
+                                "social": social_result,
+                            }
+                        else:
+                            organic_distribution = {
+                                "status": "skipped",
+                                "reason": (
+                                    "Todas as variações orgânicas "
+                                    "disponíveis para este produto "
+                                    "já foram publicadas."
+                                ),
+                            }
+                    else:
+                        organic_distribution = {
+                            "status": "skipped",
+                            "reason": "oferta ativa não encontrada",
+                        }
+
+                except Exception as social_exc:
+                    organic_distribution = {
+                        "status": "failed",
+                        "reason": str(social_exc),
+                    }
+
+            result["organic_distribution"] = organic_distribution
 
             # ------------------------------------------------
             # REGISTRAR EXECUÇÃO
