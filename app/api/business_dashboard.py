@@ -772,31 +772,34 @@ th {{
 }}
 
 .publication-result-card {{
-    border: 1px solid #ddd;
+    border: 1px solid #334155;
     border-radius: 10px;
     padding: 16px;
-    background: #fff;
+    background: #0f172a;
+    color: #e2e8f0;
 }}
 
 .publication-result-row {{
     display: flex;
     justify-content: space-between;
     padding: 8px 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #334155;
 }}
 
 .publication-content-card {{
     margin-top: 15px;
     padding: 18px;
-    border: 1px solid #ddd;
+    border: 1px solid #334155;
     border-radius: 10px;
-    background: #fafafa;
+    background: #0f172a;
+    color: #e2e8f0;
 }}
 
 .publication-content-text {{
     margin-top: 12px;
     padding: 14px;
-    background: #fff;
+    background: #1e293b;
+    color: #e2e8f0;
     border-radius: 8px;
     white-space: pre-wrap;
     line-height: 1.6;
