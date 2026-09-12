@@ -243,19 +243,21 @@ class NoveltyEngine:
             "commercial_score": score,
             "decision": validation["decision"],
             "status": validation["status"],
-            "product_angle": opportunity.get(
-                "differentiation_angle"
+            "product_angle": (
+                "Transformar tarefas administrativas "
+                "repetitivas em fluxos simples de automação "
+                "com inteligência artificial."
             ),
             "differentiation_strategy": (
-                opportunity.get(
-                    "differentiation_angle"
-                )
-                or "Resolver um problema específico "
-                   "com aplicação prática."
+                "Ensinar o cliente a identificar tarefas "
+                "repetitivas, escolher quais automatizar, "
+                "montar fluxos práticos e reutilizar os "
+                "modelos no trabalho diário."
             ),
             "unique_mechanism": (
-                "Método estruturado orientado ao "
-                "problema específico do público."
+                "Sistema de Automação Administrativa por "
+                "Fluxos: identificar, estruturar, automatizar "
+                "e reutilizar tarefas administrativas com IA."
             ),
             "commercial_thesis": (
                 opportunity.get(

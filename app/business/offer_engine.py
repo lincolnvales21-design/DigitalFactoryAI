@@ -1,5 +1,6 @@
 
 import json
+import re
 import os
 from datetime import datetime
 
@@ -80,18 +81,132 @@ class OfferEngine:
             or "pessoas que buscam uma solução prática"
         )
 
-        problem = (
+        # =====================================================
+        # CONTEXTO COMERCIAL LIMPO
+        # =====================================================
+        # Nunca usar a description longa como problema principal.
+        # O problema deve vir do Radar/ProductAgent quando disponível.
+        # Isso evita que posicionamento, ângulo, diferencial e formato
+        # sejam incorporados acidentalmente à copy como se fossem o
+        # problema do cliente.
+
+        clean_problem = (
             product.get("problem")
+            or research.get("problem")
+            or novelty.get("problem")
             or existing_offer.get("problem")
-            or description
-            or "um problema específico"
         )
 
-        mechanism = (
+        if isinstance(clean_problem, str):
+            clean_problem = clean_problem.strip()
+
+        if not clean_problem:
+            clean_problem = "tarefas repetitivas e perda de tempo na rotina"
+
+        clean_audience = (
+            product.get("target_audience")
+            or product.get("audience")
+            or research.get("target_audience")
+            or novelty.get("target_audience")
+            or existing_offer.get("target_audience")
+        )
+
+        if isinstance(clean_audience, str):
+            clean_audience = clean_audience.strip()
+
+        if not clean_audience:
+            clean_audience = "pessoas que buscam uma solução prática"
+
+        clean_angle = (
+            product.get("product_angle")
+            or research.get("product_angle")
+            or novelty.get("product_angle")
+            or ""
+        )
+
+        if isinstance(clean_angle, str):
+            clean_angle = clean_angle.strip()
+
+        clean_differentiation = (
+            product.get("differentiation_strategy")
+            or research.get("differentiation_strategy")
+            or novelty.get("differentiation_strategy")
+            or existing_offer.get("differentiation_strategy")
+            or "orientação prática e estruturada"
+        )
+
+        if isinstance(clean_differentiation, str):
+            clean_differentiation = clean_differentiation.strip()
+
+        clean_mechanism = (
             product.get("unique_mechanism")
+            or research.get("unique_mechanism")
+            or novelty.get("unique_mechanism")
             or existing_offer.get("unique_mechanism")
             or "método prático e estruturado"
         )
+
+        if isinstance(clean_mechanism, str):
+            clean_mechanism = clean_mechanism.strip()
+
+        # =====================================================
+        # LINGUAGEM DE COPY AUTOMÁTICA
+        # =====================================================
+        # Converte problemas técnicos em frases naturais para
+        # promessa, benefícios e conteúdo comercial.
+        problem_for_copy = clean_problem
+        solution_phrase = clean_problem
+
+        if isinstance(clean_problem, str):
+            raw_problem = clean_problem.strip().rstrip(".")
+            lowered_problem = raw_problem.lower()
+
+            if lowered_problem.startswith("automatizar "):
+                core = raw_problem[len("automatizar "):].strip()
+
+                core = re.sub(
+                    r"\s+usando\s+inteligência artificial$",
+                    "",
+                    core,
+                    flags=re.IGNORECASE,
+                )
+                core = re.sub(
+                    r"\s+com\s+inteligência artificial$",
+                    "",
+                    core,
+                    flags=re.IGNORECASE,
+                )
+
+                if "repetitiv" not in core.lower():
+                    problem_for_copy = f"{core} repetitivas"
+                else:
+                    problem_for_copy = core
+
+                solution_phrase = (
+                    f"automatizar {problem_for_copy} "
+                    f"com inteligência artificial"
+                )
+            else:
+                problem_for_copy = raw_problem
+                solution_phrase = raw_problem
+
+        audience_for_copy = audience
+
+        if isinstance(audience, str):
+            audience_for_copy = audience.strip()
+
+            if audience_for_copy.lower() == "profissionais autônomos":
+                audience_for_copy = "profissional autônomo"
+
+        customer_problem_sentence = (
+            f"Você é {audience_for_copy} e perde tempo com "
+            f"{problem_for_copy}?"
+        )
+
+        # Variáveis canônicas usadas pelo restante do fallback.
+        problem = clean_problem
+        audience = clean_audience
+        mechanism = clean_mechanism
 
         if optimize_existing and total_orders > 0:
             offer_name = (
@@ -106,46 +221,41 @@ class OfferEngine:
             )
 
             promise = (
-                "Você vai descobrir uma forma mais clara de "
-                "entender o problema, evitar erros comuns e "
-                "começar a aplicar uma solução prática."
+                f"Aprender como lidar com {problem_for_copy} "
+                f"de forma mais simples, prática e organizada, "
+                f"usando um método pensado para {audience}."
             )
 
             core_benefit = (
-                f"Conhecer o princípio por trás do {mechanism} "
-                f"e entender como aplicá-lo na prática."
+                f"Conhecer uma forma prática de lidar com "
+                f"{problem_for_copy} e aplicar o método no dia a dia."
             )
 
             benefits = [
-                "Uma amostra prática do conteúdo.",
-                "Um passo importante para começar.",
-                "Orientação clara e organizada.",
-                "Checklist para facilitar a aplicação.",
-                "Plano de ação para continuar depois da amostra.",
+                f"Identificar quais {problem_for_copy} mais consomem tempo.",
+                f"Aprender uma abordagem prática para {problem_for_copy}.",
+                "Aplicar o método passo a passo.",
+                "Usar exemplos e checklists para executar.",
+                "Ter um plano de ação para continuar depois da amostra.",
             ]
 
             sales_copy = (
-                f"Você já percebeu como é fácil saber o que "
-                f"precisa ser feito, mas travar na hora de colocar "
-                f"em prática?\n\n"
-                f"Aqui está uma pequena parte do que você vai "
-                f"encontrar neste material: uma abordagem simples, "
-                f"prática e organizada para sair da dúvida e começar "
-                f"a agir.\n\n"
-                f"Essa é apenas uma amostra. O conteúdo completo "
-                f"aprofunda o método, apresenta o passo a passo, "
-                f"checklists e orientações para você aplicar por conta "
-                f"própria.\n\n"
-                f"Se esta pequena parte já ajudou, imagine ter o "
-                f"material completo em mãos.\n\n"
+                f"{offer_name}\n\n"
+                f"{customer_problem_sentence}\n\n"
+                f"Veja uma abordagem prática para entender o que pode "
+                f"ser simplificado, automatizado ou organizado na sua rotina.\n\n"
+                f"Esta é apenas uma amostra do método. O conteúdo completo "
+                f"aprofunda o passo a passo, apresenta exemplos, checklists "
+                f"e orientações para colocar tudo em prática.\n\n"
+                f"Se esta pequena parte já mostrou um caminho, imagine "
+                f"ter o método completo para consultar quando precisar.\n\n"
                 f"Você recebe:\n"
                 f"• {benefits[0]}\n"
                 f"• {benefits[1]}\n"
                 f"• {benefits[2]}\n"
                 f"• {benefits[3]}\n"
                 f"• {benefits[4]}\n\n"
-                f"Conheça o conteúdo completo e veja como colocar "
-                f"o método em prática."
+                f"Conheça o conteúdo completo e comece a aplicar."
             )
 
             commercial_thesis = (
@@ -269,86 +379,128 @@ class OfferEngine:
             or "Novo Produto Digital"
         )
 
+        product_angle = clean_angle
+
+        differentiation = clean_differentiation
+
         promise = (
-            f"Ajudar {audience} a resolver {problem} "
-            f"de forma prática e estruturada."
+            f"Aprender como lidar com {problem_for_copy} "
+            f"de forma mais simples, prática e organizada, "
+            f"usando um método pensado para {audience}."
         )
 
         benefits = [
-            f"Aplicação prática para {problem}.",
-            f"Orientação específica para {audience}.",
-            "Passo a passo estruturado.",
-            "Checklist de implementação.",
-            "Plano de ação.",
+            f"Identificar quais {problem_for_copy} mais consomem tempo.",
+            f"Aprender como {solution_phrase}.",
+            "Aplicar o método passo a passo.",
+            "Usar exemplos e checklists para executar.",
+            "Ter um plano claro para continuar depois da primeira aplicação.",
         ]
+
+        sales_copy = (
+            f"{offer_name}\n\n"
+            f"{customer_problem_sentence}\n\n"
+            f"Veja como identificar o que pode ser simplificado "
+            f"ou automatizado e transformar tarefas repetitivas "
+            f"em fluxos mais simples e organizados.\n\n"
+            f"Uma pequena amostra do método:\n"
+            f"1. Identifique o que está se repetindo.\n"
+            f"2. Separe o que pode ser simplificado ou automatizado.\n"
+            f"3. Estruture o primeiro fluxo de execução.\n"
+            f"4. Teste e ajuste antes de ampliar.\n\n"
+            f"Isso é apenas uma amostra. O conteúdo completo aprofunda "
+            f"o método, apresenta o passo a passo, exemplos, checklists "
+            f"e orientações para colocar tudo em prática.\n\n"
+            f"Se essa pequena parte já mostrou um caminho, imagine ter "
+            f"o método completo para consultar quando precisar.\n\n"
+            f"Você recebe:\n"
+            f"• {benefits[0]}\n"
+            f"• {benefits[1]}\n"
+            f"• {benefits[2]}\n"
+            f"• {benefits[3]}\n"
+            f"• {benefits[4]}\n\n"
+            f"Conheça o conteúdo completo e comece a aplicar."
+        )
 
         return {
             "status": "created",
             "offer_name": offer_name,
             "positioning": (
-                f"Solução prática para {audience}, "
-                f"voltada para {problem}."
+                f"Conteúdo prático para {audience} que precisam "
+                f"lidar melhor com {problem_for_copy}, usando uma abordagem "
+                f"simples e orientada à aplicação."
             ),
             "promise": promise,
-            "core_benefit": benefits[0],
+            "core_benefit": (
+                f"Dar a {audience} um caminho claro para começar "
+                f"a lidar com {problem_for_copy}."
+            ),
             "benefits": benefits,
-            "differentiator": "orientação prática e estruturada",
-            "unique_mechanism": mechanism,
-            "commercial_thesis": "",
+            "differentiator": differentiation,
+            "unique_mechanism": (
+                product.get("unique_mechanism")
+                or research.get("unique_mechanism")
+                or novelty.get("unique_mechanism")
+                or mechanism
+            ),
+            "commercial_thesis": (
+                f"Mostrar uma pequena parte do método gratuitamente "
+                f"para gerar valor imediato, curiosidade e interesse "
+                f"pelo conteúdo completo."
+            ),
             "offer_stack": [
-                "Produto principal",
+                "Conteúdo completo",
+                "Passo a passo de aplicação",
                 "Checklist de implementação",
                 "Plano de ação",
                 "Material complementar",
             ],
             "price": float(product.get("price") or 0),
             "currency": product.get("currency") or "BRL",
-            "sales_copy": (
-                f"{offer_name}\n\n"
-                f"{promise}\n\n"
-                f"Desenvolvido para {audience}, "
-                f"com foco em execução e resultado."
-            ),
-            "cta": "Quero começar agora",
+            "sales_copy": sales_copy,
+            "cta": "Quero conhecer o conteúdo completo",
             "urgency": (
-                f"Comece agora e transforme {problem} "
-                f"em um plano de ação."
+                "Veja a amostra, entenda o método e descubra "
+                "o que você ainda pode aplicar com o conteúdo completo."
             ),
             "objection_handling": [
                 {
+                    "objection": "Não sei se isso é para mim.",
+                    "response": (
+                        f"Este conteúdo foi estruturado especificamente "
+                        f"para {audience} e parte do problema: {problem}."
+                    ),
+                },
+                {
                     "objection": "Não tenho tempo.",
                     "response": (
-                        "A solução foi organizada em etapas curtas."
+                        "O método foi organizado em etapas práticas "
+                        "para facilitar a aplicação."
                     ),
                 },
                 {
                     "objection": "Não sei por onde começar.",
                     "response": (
-                        "O método apresenta um caminho estruturado."
-                    ),
-                },
-                {
-                    "objection": "Será que funciona para mim?",
-                    "response": (
-                        "A proposta é orientada ao problema específico."
+                        "A primeira etapa é identificar o que está "
+                        "causando o problema e aplicar o primeiro fluxo."
                     ),
                 },
             ],
             "traffic_angles": [
-                "Problema específico",
-                "Erro comum",
-                "Antes e depois",
-                "Passo prático",
-                "Diagnóstico",
-                "Checklist gratuito",
+                f"O erro que faz {audience} perder tempo com {problem}",
+                f"Um passo simples para começar a lidar com {problem}",
+                "Veja uma pequena parte do método antes de comprar",
+                f"O que ninguém explica sobre {problem}",
+                f"Como {audience} pode começar a simplificar esse problema",
+                f"Descubra o que existe no conteúdo completo",
             ],
             "validation_plan": [
-                "Publicar conteúdo relacionado ao problema.",
-                "Observar interesse e interação.",
-                "Apresentar a oferta.",
-                "Medir cliques.",
-                "Medir conversões.",
-                "Ajustar a oferta com base nos dados.",
+                "Publicar uma pequena amostra útil relacionada ao problema.",
+                "Testar ângulos de problema, dica, curiosidade e transformação.",
+                "Medir alcance, interação e cliques.",
+                "Apresentar o conteúdo completo com CTA.",
+                "Medir pedidos e vendas.",
+                "Ajustar copy e distribuição com base nos dados reais.",
             ],
         }
 

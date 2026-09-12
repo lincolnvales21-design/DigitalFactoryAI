@@ -8,29 +8,32 @@ from app.agents.automation_agent import AutomationAgent
 from app.agents.router import AgentRouter
 
 
+def _ensure_agent(agent_name, factory):
+    if manager.get_agent(agent_name) is None:
+        manager.register(factory())
+
+
 def load_agents():
 
-    if manager.list_agents():
-        return manager
+    _ensure_agent(
+        "ResearchAgent",
+        ResearchAgent,
+    )
 
+    _ensure_agent(
+        "ProductAgent",
+        ProductAgent,
+    )
 
-    research_agent = ResearchAgent()
-    manager.register(research_agent)
-
-
-    product_agent = ProductAgent()
-    manager.register(product_agent)
-
-
-    marketing_agent = MarketingAgent()
-    manager.register(marketing_agent)
-
+    _ensure_agent(
+        "MarketingAgent",
+        MarketingAgent,
+    )
 
     router = AgentRouter(manager)
 
-
-    automation_agent = AutomationAgent(router, manager)
-    manager.register(automation_agent)
-
+    if manager.get_agent("AutomationAgent") is None:
+        automation_agent = AutomationAgent(router, manager)
+        manager.register(automation_agent)
 
     return manager

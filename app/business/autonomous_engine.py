@@ -16,6 +16,7 @@ from app.business.engine import business_engine
 from app.products.factory import product_factory
 
 from app.business.autonomous_decision_loop import autonomous_decision_loop
+from app.agents.loader import load_agents
 
 
 class AutonomousBusinessEngine:
@@ -89,6 +90,10 @@ class AutonomousBusinessEngine:
         return cycle_id
 
     async def run_once(self):
+
+        # Garante que todos os agentes estejam disponíveis
+        # antes de iniciar qualquer ciclo comercial.
+        load_agents()
 
         if self._lock.locked():
             return {
