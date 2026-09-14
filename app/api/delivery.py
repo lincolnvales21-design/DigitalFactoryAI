@@ -51,13 +51,16 @@ def download_product(
     cursor.execute(
         """
         SELECT
-            id,
-            product_id,
-            status,
-            delivered_at,
-            download_token
-        FROM orders
-        WHERE id = ?
+            o.id,
+            o.product_id,
+            o.status,
+            o.delivered_at,
+            o.download_token,
+            p.product_type
+        FROM orders o
+        JOIN products p
+            ON p.id = o.product_id
+        WHERE o.id = ?
         """,
         (order_id,)
     )
@@ -96,7 +99,7 @@ def download_product(
     if result.get("status") == "already_delivered":
 
         file_path = (
-            f"generated_products/ebook/"
+            f"generated_products/{order[5]}/"
             f"product_{order[1]}.pdf"
         )
 
