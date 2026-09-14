@@ -67,16 +67,21 @@ class MercadoPagoGateway(PaymentGateway):
             access_token
         )
 
-        domain = os.getenv(
-            "REPLIT_DEV_DOMAIN"
+        base_url = (
+            os.getenv("DIGITALFACTORY_PUBLIC_URL")
+            or (
+                f"https://{os.getenv('REPLIT_DEV_DOMAIN')}"
+                if os.getenv("REPLIT_DEV_DOMAIN")
+                else None
+            )
         )
 
-        if not domain:
+        if not base_url:
             raise RuntimeError(
-                "REPLIT_DEV_DOMAIN não configurado."
+                "DIGITALFACTORY_PUBLIC_URL não configurada."
             )
 
-        base_url = f"https://{domain}"
+        base_url = base_url.rstrip("/")
 
         success_url = (
             f"{base_url}/delivery/download/"
@@ -94,6 +99,9 @@ class MercadoPagoGateway(PaymentGateway):
                 }
             ],
             "external_reference": str(order_id),
+            "notification_url": (
+                f"{base_url}/payments/webhook/mercadopago"
+            ),
             "back_urls": {
                 "success": success_url,
                 "failure": (

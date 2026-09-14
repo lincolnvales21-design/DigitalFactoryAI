@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from urllib.parse import urlparse, parse_qs
 
 from app.business.acquisition_tracker import acquisition_tracker
 from app.business.publication_tracker import publication_tracker
@@ -13,6 +12,11 @@ class OrganicDistributionEngine:
         "education",
         "transformation",
         "offer",
+        "common_mistake",
+        "checklist",
+        "question",
+        "alert",
+        "curiosity",
     )
 
     def build_variations(self, product, offer):
@@ -43,15 +47,29 @@ class OrganicDistributionEngine:
             if str(item).strip()
         ][:5]
 
-        cta = (
-            offer.get("cta")
-            or "Quero começar agora"
-        )
+        cta = offer.get("cta") or "Quero começar agora"
 
-        problem = (
-            product.get("problem")
-            or "Muitas pessoas sabem o que precisam fazer, mas não sabem por onde começar."
+        description = (
+            product.get("description")
+            if isinstance(product.get("description"), str)
+            else ""
         )
+        description_lower = description.lower()
+
+        if (
+            "automatizar tarefas administrativas" in description_lower
+            or "tarefas administrativas repetitivas" in description_lower
+        ):
+            problem = (
+                "Profissionais autônomos perdem tempo com tarefas "
+                "administrativas repetitivas que poderiam ser simplificadas "
+                "ou automatizadas."
+            )
+        else:
+            problem = (
+                product.get("problem")
+                or "Muitas pessoas sabem o que precisam fazer, mas não sabem por onde começar."
+            )
 
         base = {
             "product_id": product_id,
@@ -59,12 +77,18 @@ class OrganicDistributionEngine:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
+        benefit_text = benefits[0] if benefits else promise
+        education_text = benefits[1] if len(benefits) > 1 else benefit_text
+        checklist_text = "\n".join(
+            f"☐ {item}" for item in benefits[:3]
+        ) or "☐ Identifique o problema\n☐ Escolha uma ação prática\n☐ Teste e ajuste"
+
         variations = []
 
         variations.append({
             **base,
             "content_type": "problem",
-            "title": f"Você também enfrenta isso?",
+            "title": "Você também enfrenta isso?",
             "caption": (
                 f"{problem}\n\n"
                 f"{promise}\n\n"
@@ -73,30 +97,18 @@ class OrganicDistributionEngine:
             ),
         })
 
-        benefit_text = (
-            benefits[0]
-            if benefits
-            else promise
-        )
-
         variations.append({
             **base,
             "content_type": "benefit",
-            "title": f"O que você pode conquistar",
+            "title": "O que pode mudar",
             "caption": (
-                f"{product_name}\n\n"
+                f"Para quem trabalha por conta própria, cada tarefa administrativa repetitiva pode consumir tempo que deveria estar sendo usado para atender clientes e fazer o negócio crescer.\n\n"
+                f"{benefit_text}\n\n"
                 f"{promise}\n\n"
-                f"Um dos principais benefícios: {benefit_text}\n\n"
                 f"{cta}\n\n"
-                "#DigitalFactoryAI #NegociosDigitais #Empreendedorismo"
+                "#DigitalFactoryAI #IA #Automacao #Produtividade"
             ),
         })
-
-        education_text = (
-            benefits[1]
-            if len(benefits) > 1
-            else benefit_text
-        )
 
         variations.append({
             **base,
@@ -105,27 +117,20 @@ class OrganicDistributionEngine:
             "caption": (
                 f"Uma coisa importante sobre esse problema:\n\n"
                 f"{education_text}\n\n"
-                f"É justamente esse tipo de aplicação prática que "
-                f"o {product_name} ajuda a organizar.\n\n"
-                f"{cta}\n\n"
-                "#DigitalFactoryAI #NegociosDigitais #Empreendedorismo"
+                f"A ideia é transformar conhecimento em uma aplicação que você consiga usar no dia a dia.\n\n"
+                f"#DigitalFactoryAI #Aprendizado #Tecnologia"
             ),
         })
-
-        transformation_text = (
-            "sair da dúvida para um caminho mais claro e prático"
-        )
 
         variations.append({
             **base,
             "content_type": "transformation",
             "title": "Do problema para a ação",
             "caption": (
-                f"{product_name}\n\n"
-                f"A proposta é simples: {transformation_text}.\n\n"
+                f"Não precisa começar tentando resolver tudo de uma vez.\n\n"
+                f"Comece identificando uma tarefa, organize o processo e avance a partir daí.\n\n"
                 f"{promise}\n\n"
-                f"{cta}\n\n"
-                "#DigitalFactoryAI #NegociosDigitais #Empreendedorismo"
+                f"#DigitalFactoryAI #Produtividade #IA"
             ),
         })
 
@@ -146,6 +151,67 @@ class OrganicDistributionEngine:
                 )
                 + f"\n\n{cta}\n\n"
                 "#DigitalFactoryAI #NegociosDigitais #Empreendedorismo"
+            ),
+        })
+
+        variations.append({
+            **base,
+            "content_type": "common_mistake",
+            "title": "Um erro comum",
+            "caption": (
+                f"Um erro comum é tentar automatizar todas as tarefas administrativas de uma vez.\n\n"
+                f"Para quem trabalha por conta própria, isso pode gerar mais confusão do que economia de tempo.\n\n"
+                f"Comece identificando uma tarefa administrativa repetitiva que consome tempo todos os dias.\n\n"
+                f"Automatize uma etapa, teste o resultado e só depois avance para a próxima.\n\n"
+                "#DigitalFactoryAI #IA #Automacao #Produtividade"
+            ),
+        })
+
+        variations.append({
+            **base,
+            "content_type": "checklist",
+            "title": "Checklist rápido",
+            "caption": (
+                f"Antes de começar, confira:\n\n"
+                f"{checklist_text}\n\n"
+                f"Pequenas melhorias consistentes podem transformar uma rotina.\n\n"
+                "#DigitalFactoryAI #Checklist #Produtividade"
+            ),
+        })
+
+        variations.append({
+            **base,
+            "content_type": "question",
+            "title": "Uma pergunta para você",
+            "caption": (
+                f"Qual tarefa repetitiva mais toma seu tempo hoje?\n\n"
+                f"Às vezes, encontrar a resposta para essa pergunta já mostra onde começar uma mudança.\n\n"
+                f"Conta nos comentários.\n\n"
+                "#DigitalFactoryAI #IA #Empreendedorismo"
+            ),
+        })
+
+        variations.append({
+            **base,
+            "content_type": "alert",
+            "title": "Fique atento",
+            "caption": (
+                f"Se uma tarefa é repetida todos os dias, vale parar e perguntar:\n\n"
+                f"isso realmente precisa continuar sendo feito da mesma maneira?\n\n"
+                f"{problem}\n\n"
+                "#DigitalFactoryAI #Tecnologia #Produtividade"
+            ),
+        })
+
+        variations.append({
+            **base,
+            "content_type": "curiosity",
+            "title": "Já reparou nisso?",
+            "caption": (
+                f"Muitas tarefas que parecem pequenas acabam consumindo horas ao longo de uma semana.\n\n"
+                f"O primeiro passo é perceber onde esse tempo está desaparecendo.\n\n"
+                f"{promise}\n\n"
+                "#DigitalFactoryAI #Curiosidade #IA"
             ),
         })
 

@@ -1,4 +1,5 @@
 from app.business.acquisition_tracker import acquisition_tracker
+from app.payments.service import payment_service
 
 import os
 import sqlite3
@@ -7,6 +8,7 @@ from datetime import datetime
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 import json
+import secrets
 
 
 class CheckoutEngine:
@@ -97,6 +99,12 @@ class CheckoutEngine:
 
         order_id = cursor.lastrowid
 
+        download_token = secrets.token_urlsafe(32)
+        cursor.execute(
+            "UPDATE orders SET download_token = ? WHERE id = ?",
+            (download_token, order_id),
+        )
+
         # Algumas versões do schema possuem customer_email.
         # Tentamos atualizar sem interromper o checkout caso
         # o schema legado não tenha essa coluna.
@@ -136,51 +144,15 @@ class CheckoutEngine:
 
     def _create_payment(self, order_id):
         """
-        Utiliza o endpoint de pagamentos já existente.
-        Isso evita duplicar a lógica Mercado Pago/Stripe.
+        Cria o pagamento diretamente pelo serviço existente,
+        usando o mesmo banco e o gateway configurado.
         """
-
-        payload = json.dumps({}).encode("utf-8")
-
-        request = Request(
-            f"{os.getenv("DIGITALFACTORY_API_URL", "http://127.0.0.1:" + os.getenv("PORT", "8000"))}/payments/create/{order_id}",
-            data=payload,
-            headers={
-                "Content-Type": "application/json"
-            },
-            method="POST",
-        )
-
         try:
-            with urlopen(request, timeout=30) as response:
-                body = response.read().decode("utf-8")
-
-                try:
-                    return json.loads(body)
-                except Exception:
-                    return {
-                        "status": "success",
-                        "raw": body,
-                    }
-
-        except HTTPError as exc:
-            body = exc.read().decode("utf-8")
-
-            try:
-                detail = json.loads(body)
-            except Exception:
-                detail = body
-
-            return {
-                "status": "failed",
-                "http_status": exc.code,
-                "detail": detail,
-            }
-
+            return payment_service.create_payment(order_id)
         except Exception as exc:
             return {
-                "status": "failed",
-                "detail": str(exc),
+                "status": "error",
+                "message": str(exc),
             }
 
     def checkout(

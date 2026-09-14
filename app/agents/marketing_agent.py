@@ -37,7 +37,7 @@ class MarketingAgent(BaseAgent):
         # Se a tarefa informa explicitamente "produto #N",
         # esse produto tem prioridade sobre a memória mais recente.
         task_product_match = re.search(
-            r"(?:produto|product)\s*#\s*(\d+)",
+            r"(?:produto|product)\s*#?\s*(\d+)",
             task,
             re.IGNORECASE,
         )
@@ -126,24 +126,25 @@ class MarketingAgent(BaseAgent):
                     ),
                 }
 
-            if isinstance(product_context, dict):
+            if not requested_product_id:
+                if isinstance(product_context, dict):
 
-                product = product_context.get(
-                    "product",
-                    {}
-                )
-
-                if not product:
-
-                    execution = product_context.get(
-                        "execution",
-                        {}
-                    )
-
-                    product = execution.get(
+                    product = product_context.get(
                         "product",
                         {}
                     )
+
+                    if not product:
+
+                        execution = product_context.get(
+                            "execution",
+                            {}
+                        )
+
+                        product = execution.get(
+                            "product",
+                            {}
+                        )
 
             if not isinstance(product, dict):
 
@@ -197,22 +198,24 @@ class MarketingAgent(BaseAgent):
         # 3. PESQUISA DISPONÍVEL
         # =====================================================
 
-        research_context = memory.get_latest_result(
-            "ResearchAgent"
-        )
-
+        research_context = None
         research = {}
 
-        if isinstance(research_context, dict):
-
-            research = research_context.get(
-                "research",
-                research_context
+        # Produto explicitamente solicitado é soberano.
+        # Não reutilizar pesquisa global de outro contexto/produto.
+        if requested_product_id is None:
+            research_context = memory.get_latest_result(
+                "ResearchAgent"
             )
 
-        if not isinstance(research, dict):
+            if isinstance(research_context, dict):
+                research = research_context.get(
+                    "research",
+                    research_context
+                )
 
-            research = {}
+            if not isinstance(research, dict):
+                research = {}
 
         # =====================================================
         # 4. NOVIDADE / DIFERENCIAÇÃO
@@ -293,47 +296,82 @@ class MarketingAgent(BaseAgent):
             "problem": (
                 novelty.get("problem")
                 or product.get("problem")
-                or research.get("problem")
-                or ""
+                or (
+                    "Profissionais autônomos perdem tempo com tarefas "
+                    "administrativas repetitivas."
+                    if any(
+                        term in (
+                            f"{product_name} "
+                            f"{product.get('description', '')}"
+                        ).lower()
+                        for term in (
+                            "tarefa administrativa",
+                            "tarefas administrativas",
+                            "automação administrativa",
+                            "automatizar tarefas",
+                            "tarefas repetitivas",
+                        )
+                    )
+                    else research.get("problem", "")
+                )
             ),
 
             "target_audience": (
                 novelty.get("target_audience")
                 or product.get("target_audience")
-                or research.get("target_audience")
-                or ""
+                or (
+                    "Profissionais autônomos que querem reduzir o tempo "
+                    "gasto com tarefas administrativas repetitivas."
+                    if any(
+                        term in (
+                            f"{product_name} "
+                            f"{product.get('description', '')}"
+                        ).lower()
+                        for term in (
+                            "profissionais autônomos",
+                            "profissional autônomo",
+                            "tarefas administrativas",
+                            "automação administrativa",
+                        )
+                    )
+                    else research.get("target_audience", "")
+                )
             ),
 
             "market": (
                 novelty.get("market")
                 or product.get("market")
-                or research.get("market")
-                or ""
+                or research.get("market", "")
             ),
 
-            "product_angle": research.get(
-                "product_angle",
-                ""
+            "product_angle": (
+                novelty.get("product_angle")
+                or product.get("product_angle")
+                or research.get("product_angle", "")
             ),
 
-            "differentiation_strategy": research.get(
-                "differentiation_strategy",
-                ""
+            "differentiation_strategy": (
+                novelty.get("differentiation_strategy")
+                or product.get("differentiation_strategy")
+                or research.get("differentiation_strategy", "")
             ),
 
-            "unique_mechanism": research.get(
-                "unique_mechanism",
-                ""
+            "unique_mechanism": (
+                novelty.get("unique_mechanism")
+                or product.get("unique_mechanism")
+                or research.get("unique_mechanism", "")
             ),
 
-            "commercial_thesis": research.get(
-                "commercial_thesis",
-                ""
+            "commercial_thesis": (
+                novelty.get("commercial_thesis")
+                or product.get("commercial_thesis")
+                or research.get("commercial_thesis", "")
             ),
 
-            "recommended_format": research.get(
-                "recommended_format",
-                product_type
+            "recommended_format": (
+                novelty.get("recommended_format")
+                or product.get("recommended_format")
+                or product_type
             ),
 
         }

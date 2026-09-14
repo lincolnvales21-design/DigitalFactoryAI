@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Form
 from fastapi.responses import HTMLResponse
 from app.business.sales_engine import sales_engine
 from app.business.checkout_engine import checkout_engine
@@ -162,17 +162,37 @@ class CheckoutRequest(BaseModel):
 @router.post("/checkout/{product_id}")
 async def create_checkout(
     product_id: int,
-    data: CheckoutRequest
+    customer_email: str = Form(...),
+    channel: str = Form("unknown"),
+    source: str | None = Form(None),
+    campaign: str | None = Form(None),
+    medium: str | None = Form(None),
 ):
     """
-    Cria o pedido e inicia o pagamento usando
-    a infraestrutura existente.
+    Cria o pedido e redireciona o comprador
+    diretamente para o checkout do gateway.
     """
-    return checkout_engine.checkout(
+    result = checkout_engine.checkout(
         product_id=product_id,
-        customer_email=data.customer_email,
-        channel=data.channel,
-        source=data.source,
-        campaign=data.campaign,
-        medium=data.medium,
+        customer_email=customer_email,
+        channel=channel,
+        source=source,
+        campaign=campaign,
+        medium=medium,
     )
+
+    payment = result.get("payment") or {}
+
+    if payment.get("status") == "pending":
+        payment_data = payment.get("payment") or {}
+        checkout_url = payment_data.get("checkout_url")
+
+        if checkout_url:
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(
+                url=checkout_url,
+                status_code=303,
+            )
+
+    return result
+

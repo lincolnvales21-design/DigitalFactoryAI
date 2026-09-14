@@ -53,6 +53,7 @@ class SalesEngine:
             SELECT
                 id,
                 name,
+                description,
                 product_type,
                 price,
                 currency,
@@ -70,10 +71,11 @@ class SalesEngine:
         return {
             "id": row[0],
             "name": row[1],
-            "product_type": row[2],
-            "price": row[3],
-            "currency": row[4],
-            "status": row[5],
+            "description": row[2],
+            "product_type": row[3],
+            "price": row[4],
+            "currency": row[5],
+            "status": row[6],
         }
 
     def save_offer(self, product_id, offer):
@@ -225,6 +227,8 @@ class SalesEngine:
             "offer": {
                 "name": offer.get("offer_name"),
                 "positioning": offer.get("positioning"),
+                "problem": offer.get("problem"),
+                "target_audience": offer.get("target_audience"),
                 "promise": offer.get("promise"),
                 "core_benefit": offer.get("core_benefit"),
                 "benefits": offer.get("benefits", []),

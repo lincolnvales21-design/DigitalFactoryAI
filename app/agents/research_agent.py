@@ -172,66 +172,100 @@ class ResearchAgent(BaseAgent):
 
     def _fallback_research(self, task: str):
 
-        return {
-            "problem": (
-                "Pessoas e pequenos negócios têm dificuldade "
-                "em transformar conhecimento ou uma necessidade "
-                "específica em uma solução digital simples."
-            ),
+        task_text = str(task or "").strip()
+        lower = task_text.lower()
 
-            "target_audience": (
-                "Pessoas que querem aprender uma habilidade prática "
-                "ou resolver um problema específico através de "
-                "um produto digital de baixo custo."
-            ),
+        problem = (
+            "Profissionais autônomos perdem tempo com "
+            "tarefas administrativas repetitivas que poderiam "
+            "ser simplificadas ou automatizadas."
+        )
+
+        target_audience = "Profissionais autônomos."
+
+        if "autônom" in lower:
+            target_audience = "Profissionais autônomos."
+
+        if (
+            "administrativ" in lower
+            or "tarefa repetitiva" in lower
+            or "automatizar" in lower
+            or "automação" in lower
+        ):
+            problem = (
+                "Profissionais autônomos perdem tempo com "
+                "tarefas administrativas repetitivas e precisam "
+                "de uma forma simples de identificar, organizar "
+                "e automatizar essas tarefas usando inteligência artificial."
+            )
+
+        if "curso" in lower:
+            recommended_product = (
+                "Curso curto e prático ensinando profissionais "
+                "autônomos a identificar e automatizar tarefas "
+                "administrativas repetitivas com inteligência artificial."
+            )
+            recommended_format = "Curso curto dividido em módulos práticos."
+        elif "ebook" in lower:
+            recommended_product = (
+                "Ebook prático sobre automação de tarefas "
+                "administrativas repetitivas com inteligência artificial."
+            )
+            recommended_format = (
+                "Ebook PDF acompanhado de checklist e plano de ação."
+            )
+        else:
+            recommended_product = (
+                "Produto digital prático para ajudar profissionais "
+                "autônomos a automatizar tarefas administrativas repetitivas."
+            )
+            recommended_format = "Curso curto ou guia prático."
+
+        return {
+            "problem": problem,
+
+            "target_audience": target_audience,
 
             "niche": (
-                "Educação prática e soluções digitais simples."
+                "Automação de tarefas administrativas com inteligência artificial."
             ),
 
             "market_need": (
-                "Existe necessidade de materiais objetivos, "
-                "práticos e fáceis de consumir que ajudem o "
-                "cliente a alcançar um resultado específico."
+                "Profissionais autônomos precisam reduzir o tempo gasto "
+                "em tarefas repetitivas e organizar melhor sua rotina."
             ),
 
             "opportunity": (
-                "Criar produtos digitais pequenos e específicos, "
-                "com promessa clara de resultado e baixo custo "
-                "de produção."
+                "Ensinar uma forma prática de identificar tarefas "
+                "repetitivas, escolher o que automatizar e criar "
+                "fluxos simples usando inteligência artificial."
             ),
 
-            "recommended_product": (
-                "Ebook ou guia prático focado em resolver "
-                "um problema específico."
-            ),
+            "recommended_product": recommended_product,
 
-            "recommended_format": (
-                "Ebook PDF acompanhado de checklist e plano de ação."
-            ),
+            "recommended_format": recommended_format,
 
             "suggested_price": (
-                "US$ 9,90 a US$ 19,90 para mercado internacional; "
-                "R$ 29,90 a R$ 59,90 para o mercado brasileiro."
+                "R$ 14,90 a R$ 49,90 para validação inicial no Brasil."
             ),
 
             "differential": (
                 "Conteúdo objetivo, aplicação prática, "
-                "checklists e orientação passo a passo."
+                "exemplos, checklists e orientação passo a passo."
             ),
 
             "validation_strategy": (
-                "Publicar uma oferta simples, testar a aceitação "
-                "através de tráfego orgânico e medir interesse, "
-                "cliques, pedidos e vendas antes de aumentar "
-                "o investimento."
+                "Publicar uma oferta simples, medir alcance, "
+                "cliques, pedidos e vendas e usar os resultados "
+                "para decidir a próxima otimização."
             ),
 
             "confidence": (
-                "Hipótese inicial. Validar com clientes reais."
+                "Hipótese inicial baseada no contexto disponível. "
+                "Validar com clientes reais."
             ),
 
-            "research_mode": "fallback_local"
+            "research_mode": "fallback_local",
         }
 
 

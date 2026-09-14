@@ -74,10 +74,12 @@ class OfferEngine:
             or ""
         ).strip()
 
+        # Para produtos existentes, a identidade comercial atual
+        # do produto nunca deve ser herdada de uma oferta antiga.
+        # A oferta anterior pode estar contaminada por pesquisa genérica.
         audience = (
             product.get("target_audience")
             or product.get("audience")
-            or existing_offer.get("target_audience")
             or "pessoas que buscam uma solução prática"
         )
 
@@ -90,15 +92,64 @@ class OfferEngine:
         # sejam incorporados acidentalmente à copy como se fossem o
         # problema do cliente.
 
+        description_context = (
+            product.get("description")
+            if isinstance(product.get("description"), str)
+            else ""
+        )
+
+        description_lower = description_context.lower()
+
+        product_problem_from_description = None
+        product_audience_from_description = None
+
+        if (
+            "automatizar tarefas administrativas" in description_lower
+            or "tarefas administrativas repetitivas" in description_lower
+        ):
+            product_problem_from_description = (
+                "tarefas administrativas repetitivas"
+            )
+
+        if "profissionais autônomos" in description_lower:
+            product_audience_from_description = "profissionais autônomos"
+
+        if (
+            "tarefas administrativas" in description_lower
+            or "tarefas repetitivas" in description_lower
+            or "automatizar tarefas" in description_lower
+        ):
+            product_problem_from_description = (
+                "profissionais autônomos perdem tempo com tarefas administrativas repetitivas"
+            )
+
+        # Produto atual e descrição são soberanos.
+        # Não reutilizar problema de oferta anterior ou pesquisa global
+        # quando o próprio produto já permite identificar o contexto.
         clean_problem = (
             product.get("problem")
-            or research.get("problem")
+            or product_problem_from_description
             or novelty.get("problem")
-            or existing_offer.get("problem")
+            or (
+                research.get("problem")
+                if not optimize_existing
+                else None
+            )
         )
+
+        if product_problem_from_description:
+            clean_problem = product_problem_from_description
 
         if isinstance(clean_problem, str):
             clean_problem = clean_problem.strip()
+
+        # Normalização específica para produtos de automação administrativa.
+        # Evita que contexto de pesquisa genérico seja incorporado à dor.
+        if (
+            "automatizar tarefas administrativas" in description_lower
+            or "tarefas administrativas repetitivas" in description_lower
+        ):
+            clean_problem = "tarefas administrativas repetitivas"
 
         if not clean_problem:
             clean_problem = "tarefas repetitivas e perda de tempo na rotina"
@@ -106,10 +157,17 @@ class OfferEngine:
         clean_audience = (
             product.get("target_audience")
             or product.get("audience")
-            or research.get("target_audience")
+            or product_audience_from_description
             or novelty.get("target_audience")
-            or existing_offer.get("target_audience")
+            or (
+                research.get("target_audience")
+                if not optimize_existing
+                else None
+            )
         )
+
+        if product_audience_from_description:
+            clean_audience = product_audience_from_description
 
         if isinstance(clean_audience, str):
             clean_audience = clean_audience.strip()
@@ -190,10 +248,10 @@ class OfferEngine:
                 problem_for_copy = raw_problem
                 solution_phrase = raw_problem
 
-        audience_for_copy = audience
+        audience_for_copy = clean_audience
 
-        if isinstance(audience, str):
-            audience_for_copy = audience.strip()
+        if isinstance(audience_for_copy, str):
+            audience_for_copy = audience_for_copy.strip()
 
             if audience_for_copy.lower() == "profissionais autônomos":
                 audience_for_copy = "profissional autônomo"
@@ -205,7 +263,7 @@ class OfferEngine:
 
         # Variáveis canônicas usadas pelo restante do fallback.
         problem = clean_problem
-        audience = clean_audience
+        audience = audience_for_copy
         mechanism = clean_mechanism
 
         if optimize_existing and total_orders > 0:
@@ -233,7 +291,7 @@ class OfferEngine:
 
             benefits = [
                 f"Identificar quais {problem_for_copy} mais consomem tempo.",
-                f"Aprender uma abordagem prática para {problem_for_copy}.",
+                f"Aprender uma abordagem prática para lidar com {problem_for_copy}.",
                 "Aplicar o método passo a passo.",
                 "Usar exemplos e checklists para executar.",
                 "Ter um plano de ação para continuar depois da amostra.",
@@ -344,6 +402,8 @@ class OfferEngine:
                         "Material complementar",
                     ]
                 ),
+                "problem": clean_problem,
+                "target_audience": clean_audience,
                 "price": float(
                     product.get("price")
                     or existing_offer.get("price")
@@ -391,7 +451,7 @@ class OfferEngine:
 
         benefits = [
             f"Identificar quais {problem_for_copy} mais consomem tempo.",
-            f"Aprender como {solution_phrase}.",
+            f"Aprender uma abordagem prática para lidar com {problem_for_copy}.",
             "Aplicar o método passo a passo.",
             "Usar exemplos e checklists para executar.",
             "Ter um plano claro para continuar depois da primeira aplicação.",
@@ -431,6 +491,8 @@ class OfferEngine:
                 f"simples e orientada à aplicação."
             ),
             "promise": promise,
+            "problem": clean_problem,
+            "target_audience": clean_audience,
             "core_benefit": (
                 f"Dar a {audience} um caminho claro para começar "
                 f"a lidar com {problem_for_copy}."
