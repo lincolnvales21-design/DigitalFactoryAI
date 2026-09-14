@@ -83,7 +83,7 @@ class DeliveryService:
                 }
             }
 
-        if order[6] != "ebook":
+        if order[6] not in ("ebook", "course"):
             connection.close()
 
             return {
@@ -91,10 +91,10 @@ class DeliveryService:
                 "message": "Tipo de produto não suportado."
             }
 
-        ebook_path = Path("generated_products/ebook")
+        product_path = Path("generated_products") / order[6]
 
-        md_file = ebook_path / f"product_{order[1]}.md"
-        pdf_file = ebook_path / f"product_{order[1]}.pdf"
+        md_file = product_path / f"product_{order[1]}.md"
+        pdf_file = product_path / f"product_{order[1]}.pdf"
 
         if not md_file.exists():
             connection.close()
