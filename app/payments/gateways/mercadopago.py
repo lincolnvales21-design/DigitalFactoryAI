@@ -84,7 +84,7 @@ class MercadoPagoGateway(PaymentGateway):
         base_url = base_url.rstrip("/")
 
         success_url = (
-            f"{base_url}/delivery/download/"
+            f"{base_url}/delivery/success/"
             f"{order_id}?token={download_token}"
         )
 

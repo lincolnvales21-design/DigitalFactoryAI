@@ -39,6 +39,50 @@ def deliver_order(order_id: int):
     )
 
 
+@router.get("/success/{order_id}")
+def delivery_success(
+    order_id: int,
+    token: str
+):
+    return HTMLResponse(
+        content=f"""
+        <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Compra concluída</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        max-width: 620px;
+                        margin: 60px auto;
+                        padding: 24px;
+                        text-align: center;
+                    }}
+                    a {{
+                        display: inline-block;
+                        padding: 14px 24px;
+                        background: #111827;
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 8px;
+                        font-weight: bold;
+                    }}
+                </style>
+            </head>
+            <body>
+                <h1>Compra concluída! 🎉</h1>
+                <p>Seu pagamento foi aprovado.</p>
+                <p>Seu material já está disponível para download.</p>
+                <a href="/delivery/download/{order_id}?token={token}">
+                    Baixar seu curso
+                </a>
+            </body>
+        </html>
+        """
+    )
+
+
 @router.get("/download/{order_id}")
 def download_product(
     order_id: int,
