@@ -334,25 +334,103 @@ class AcquisitionTracker:
 
 
     def intelligence(self, product_id=None):
-        report = self.report(product_id=product_id)
+        """
+        Analisa desempenho comercial por origem/campanha.
+
+        Importante:
+        - visits indicam interesse;
+        - orders indicam intenção de compra;
+        - sales indicam venda confirmada;
+        - somente receita/vendas confirmadas podem classificar
+          uma origem como vencedora.
+        """
+
+        conn = self._connect()
+
+        conditions = []
+        params = []
+
+        if product_id is not None:
+            conditions.append("product_id = ?")
+            params.append(product_id)
+
+        where = (
+            f"WHERE {' AND '.join(conditions)}"
+            if conditions
+            else ""
+        )
+
+        rows = conn.execute(
+            f"""
+            SELECT
+                channel,
+                source,
+                campaign,
+                medium,
+                COUNT(
+                    CASE
+                        WHEN event_type = 'visit'
+                        THEN 1
+                    END
+                ) AS visits,
+                COUNT(
+                    CASE
+                        WHEN event_type = 'order'
+                        THEN 1
+                    END
+                ) AS orders,
+                COUNT(
+                    CASE
+                        WHEN event_type = 'sale'
+                        THEN 1
+                    END
+                ) AS sales,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN event_type = 'sale'
+                            THEN amount
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS revenue
+            FROM acquisition_events
+            {where}
+            GROUP BY
+                channel,
+                source,
+                campaign,
+                medium
+            ORDER BY
+                revenue DESC,
+                sales DESC,
+                orders DESC,
+                visits DESC
+            """,
+            params,
+        ).fetchall()
+
+        conn.close()
 
         intelligence = []
 
-        for row in report:
+        for row in rows:
+            visits = int(row["visits"] or 0)
+            orders = int(row["orders"] or 0)
+            sales = int(row["sales"] or 0)
+            revenue = float(row["revenue"] or 0)
 
-            events = int(row.get("events", 0) or 0)
-            orders = int(row.get("orders", 0) or 0)
-            revenue = float(row.get("revenue", 0) or 0)
-
-            if events > 0:
-                conversion = round(
-                    (orders / events) * 100,
-                    2
+            conversion = (
+                round(
+                    (sales / visits) * 100,
+                    2,
                 )
-            else:
-                conversion = 0.0
+                if visits
+                else 0.0
+            )
 
-            if revenue > 0:
+            if sales > 0 and revenue > 0:
                 classification = "winner"
                 priority = 100
 
@@ -360,7 +438,7 @@ class AcquisitionTracker:
                 classification = "promising"
                 priority = 70
 
-            elif events >= 5:
+            elif visits >= 5:
                 classification = "weak"
                 priority = 20
 
@@ -369,43 +447,51 @@ class AcquisitionTracker:
                 priority = 0
 
             intelligence.append({
-                "channel": row.get("channel") or "unknown",
-                "source": row.get("source"),
-                "campaign": row.get("campaign"),
-                "medium": row.get("medium"),
-                "event_type": row.get("event_type"),
-                "events": events,
+                "channel": row["channel"] or "unknown",
+                "source": row["source"],
+                "campaign": row["campaign"],
+                "medium": row["medium"],
+                "visits": visits,
                 "orders": orders,
+                "sales": sales,
                 "revenue": revenue,
                 "conversion_rate": conversion,
                 "classification": classification,
                 "priority": priority,
             })
 
-        intelligence.sort(
-            key=lambda item: (
-                item["priority"],
-                item["revenue"],
-                item["orders"],
-                item["events"],
-            ),
-            reverse=True,
-        )
-
         winners = [
-            item for item in intelligence
+            item
+            for item in intelligence
             if item["classification"] == "winner"
         ]
 
         promising = [
-            item for item in intelligence
+            item
+            for item in intelligence
             if item["classification"] == "promising"
         ]
 
         weak = [
-            item for item in intelligence
+            item
+            for item in intelligence
             if item["classification"] == "weak"
         ]
+
+        recommended_focus = sorted(
+            winners + promising,
+            key=lambda item: (
+                item["priority"],
+                item["revenue"],
+                item["sales"],
+                item["orders"],
+                item["visits"],
+            ),
+            reverse=True,
+        )
+
+        if not recommended_focus:
+            recommended_focus = intelligence[:3]
 
         return {
             "status": "analyzed",
@@ -414,11 +500,7 @@ class AcquisitionTracker:
             "winners": winners,
             "promising": promising,
             "weak": weak,
-            "recommended_focus": (
-                winners
-                or promising
-                or intelligence[:3]
-            ),
+            "recommended_focus": recommended_focus,
         }
 
 

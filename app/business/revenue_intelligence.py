@@ -1,4 +1,3 @@
-
 import json
 import sqlite3
 from pathlib import Path
@@ -14,7 +13,9 @@ class RevenueIntelligence:
     - não movimenta dinheiro;
     - não investe;
     - não cria anúncios pagos;
-    - produz recomendações para o sistema.
+    - produz recomendações para o sistema;
+    - produtos marcados como teste não participam
+      da inteligência comercial/econômica.
     """
 
     def __init__(self):
@@ -54,7 +55,8 @@ class RevenueIntelligence:
                 product_type,
                 price,
                 currency,
-                status
+                status,
+                COALESCE(is_test, 0)
             FROM products
         """)
 
@@ -69,9 +71,23 @@ class RevenueIntelligence:
                 "price": float(row[3] or 0),
                 "currency": row[4],
                 "status": row[5],
+                "is_test": bool(row[6]),
             }
             for row in rows
         ]
+
+    def _commercial_product_ids(self):
+        """
+        Retorna somente produtos reais/comerciais.
+
+        Produtos de teste permanecem no banco para histórico,
+        mas nunca participam da inteligência econômica.
+        """
+        return {
+            product["id"]
+            for product in self._products()
+            if not product["is_test"]
+        }
 
     # --------------------------------------------------------
     # PEDIDOS
@@ -107,12 +123,24 @@ class RevenueIntelligence:
             for row in rows
         ]
 
+    def _commercial_orders(self):
+        """
+        Retorna somente pedidos associados a produtos comerciais.
+        """
+        commercial_ids = self._commercial_product_ids()
+
+        return [
+            order
+            for order in self._orders()
+            if order["product_id"] in commercial_ids
+        ]
+
     # --------------------------------------------------------
     # RECEITA POR MOEDA
     # --------------------------------------------------------
 
     def revenue_by_currency(self):
-        orders = self._orders()
+        orders = self._commercial_orders()
 
         result = {}
 
@@ -148,7 +176,7 @@ class RevenueIntelligence:
     def average_ticket(self):
         orders = [
             order
-            for order in self._orders()
+            for order in self._commercial_orders()
             if order["status"] == "paid"
         ]
 
@@ -181,8 +209,13 @@ class RevenueIntelligence:
     # --------------------------------------------------------
 
     def product_performance(self):
-        products = self._products()
-        orders = self._orders()
+        products = [
+            product
+            for product in self._products()
+            if not product["is_test"]
+        ]
+
+        orders = self._commercial_orders()
 
         result = []
 
@@ -230,8 +263,13 @@ class RevenueIntelligence:
     # --------------------------------------------------------
 
     def format_performance(self):
-        products = self._products()
-        orders = self._orders()
+        products = [
+            product
+            for product in self._products()
+            if not product["is_test"]
+        ]
+
+        orders = self._commercial_orders()
 
         result = {}
 

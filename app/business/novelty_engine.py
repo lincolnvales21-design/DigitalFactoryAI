@@ -22,6 +22,11 @@ class NoveltyEngine:
     Não cria produto.
     Não publica.
     Não movimenta capital.
+
+    Regra importante:
+      - o resultado deve permanecer coerente com a oportunidade
+        recebida pelo OpportunityEngine;
+      - nenhum fallback pode introduzir um nicho/problema diferente.
     """
 
     GENERIC_PATTERNS = [
@@ -225,10 +230,17 @@ class NoveltyEngine:
         }
 
     # --------------------------------------------------------
-    # FALLBACK
+    # FALLBACK COERENTE COM O RADAR
     # --------------------------------------------------------
 
     def _fallback(self, opportunity):
+        """
+        Fallback determinístico derivado 100% da oportunidade recebida.
+
+        Nunca injeta um problema, nicho, mecanismo ou produto
+        de outra oportunidade.
+        """
+
         score, reasons = self._local_score(
             opportunity
         )
@@ -238,41 +250,91 @@ class NoveltyEngine:
             score,
         )
 
+        area = (
+            opportunity.get("area")
+            or "mercado digital"
+        )
+
+        problem = (
+            opportunity.get("problem")
+            or "resolver um problema específico"
+        )
+
+        audience = (
+            opportunity.get("target_audience")
+            or "público específico"
+        )
+
+        fmt = (
+            opportunity.get("recommended_format")
+            or "produto digital"
+        )
+
+        market = (
+            opportunity.get("market")
+            or "mercado internacional"
+        )
+
+        commercial_thesis = (
+            opportunity.get("commercial_thesis")
+            or (
+                f"Existe uma oportunidade potencial para "
+                f"uma solução voltada a '{problem}' para "
+                f"'{audience}'."
+            )
+        )
+
+        differentiation_angle = (
+            opportunity.get("differentiation_angle")
+            or (
+                "Foco em aplicação prática, especificidade "
+                "do problema e implementação rápida."
+            )
+        )
+
+        product_angle = (
+            f"Resolver de forma prática o problema "
+            f"'{problem}' para o público '{audience}', "
+            f"utilizando o formato '{fmt}' no mercado "
+            f"'{market}'."
+        )
+
+        unique_mechanism = (
+            f"Método prático orientado ao problema: "
+            f"diagnosticar, organizar e aplicar uma solução "
+            f"específica para '{problem}'."
+        )
+
+        differentiation_strategy = (
+            f"Construir uma solução específica para "
+            f"'{audience}', centrada em '{problem}', "
+            f"evitando conteúdo genérico e priorizando "
+            f"execução prática."
+        )
+
         return {
             "novelty_score": score,
             "commercial_score": score,
             "decision": validation["decision"],
             "status": validation["status"],
-            "product_angle": (
-                "Transformar tarefas administrativas "
-                "repetitivas em fluxos simples de automação "
-                "com inteligência artificial."
-            ),
-            "differentiation_strategy": (
-                "Ensinar o cliente a identificar tarefas "
-                "repetitivas, escolher quais automatizar, "
-                "montar fluxos práticos e reutilizar os "
-                "modelos no trabalho diário."
-            ),
-            "unique_mechanism": (
-                "Sistema de Automação Administrativa por "
-                "Fluxos: identificar, estruturar, automatizar "
-                "e reutilizar tarefas administrativas com IA."
-            ),
-            "commercial_thesis": (
-                opportunity.get(
-                    "commercial_thesis"
-                )
-                or (
-                    "Existe uma oportunidade potencial "
-                    "quando um problema específico é "
-                    "resolvido para um público claramente definido."
-                )
-            ),
+            "product_angle": product_angle,
+            "differentiation_strategy": differentiation_strategy,
+            "unique_mechanism": unique_mechanism,
+            "commercial_thesis": commercial_thesis,
             "validation_questions": validation[
                 "validation_questions"
             ],
             "reasons": reasons,
+            "opportunity_context": {
+                "area": area,
+                "problem": problem,
+                "target_audience": audience,
+                "recommended_format": fmt,
+                "market": market,
+                "differentiation_angle": (
+                    differentiation_angle
+                ),
+            },
         }
 
     # --------------------------------------------------------
@@ -285,6 +347,10 @@ class NoveltyEngine:
 
         Usa IA externa quando disponível,
         mantendo fallback determinístico.
+
+        A IA também recebe regras explícitas para não
+        trocar o problema, público, área ou mercado da
+        oportunidade recebida.
         """
 
         result = self._fallback(
@@ -305,9 +371,31 @@ class NoveltyEngine:
 Você é o motor de validação comercial
 do DigitalFactoryAI.
 
-Analise esta oportunidade:
+Analise EXATAMENTE esta oportunidade:
 
 {json.dumps(opportunity, ensure_ascii=False)}
+
+CONTEXTO QUE NÃO PODE SER ALTERADO:
+
+- Área: {opportunity.get("area")}
+- Problema: {opportunity.get("problem")}
+- Público-alvo: {opportunity.get("target_audience")}
+- Formato recomendado: {opportunity.get("recommended_format")}
+- Mercado: {opportunity.get("market")}
+
+REGRAS DE COERÊNCIA OBRIGATÓRIAS:
+
+1. Não troque o problema.
+2. Não troque o público-alvo.
+3. Não troque a área.
+4. Não troque o mercado.
+5. Não introduza outro nicho.
+6. Não introduza automação, IA, marketing ou qualquer
+   outro tema que não esteja presente na oportunidade.
+7. O product_angle deve desenvolver SOMENTE a oportunidade recebida.
+8. A differentiation_strategy deve ser coerente com o problema recebido.
+9. O unique_mechanism deve resolver o problema recebido.
+10. commercial_thesis deve permanecer coerente com a oportunidade.
 
 Avalie de 0 a 100:
 
@@ -320,7 +408,7 @@ Avalie de 0 a 100:
 7. potencial do mercado;
 8. risco de ser uma ideia genérica.
 
-REGRAS:
+REGRAS COMERCIAIS:
 
 - Não invente provas de demanda.
 - Não invente clientes.
@@ -360,7 +448,9 @@ reasons
                             "role": "system",
                             "content": (
                                 "Você é um analista "
-                                "comercial rigoroso."
+                                "comercial rigoroso e deve "
+                                "preservar integralmente "
+                                "o contexto da oportunidade."
                             ),
                         },
                         {
@@ -391,9 +481,101 @@ reasons
                         generated
                     )
 
+                    # ----------------------------------------
+                    # PROTEÇÃO CONTRA INCOERÊNCIA DA IA
+                    # ----------------------------------------
+
+                    generated_text = self._normalize(
+                        " ".join(
+                            [
+                                str(
+                                    generated.get(
+                                        "product_angle",
+                                        "",
+                                    )
+                                ),
+                                str(
+                                    generated.get(
+                                        "differentiation_strategy",
+                                        "",
+                                    )
+                                ),
+                                str(
+                                    generated.get(
+                                        "unique_mechanism",
+                                        "",
+                                    )
+                                ),
+                            ]
+                        )
+                    )
+
+                    opportunity_text = self._normalize(
+                        " ".join(
+                            [
+                                str(
+                                    opportunity.get(
+                                        "area",
+                                        "",
+                                    )
+                                ),
+                                str(
+                                    opportunity.get(
+                                        "problem",
+                                        "",
+                                    )
+                                ),
+                                str(
+                                    opportunity.get(
+                                        "target_audience",
+                                        "",
+                                    )
+                                ),
+                                str(
+                                    opportunity.get(
+                                        "market",
+                                        "",
+                                    )
+                                ),
+                            ]
+                        )
+                    )
+
+                    # Palavras-chave fortes de outro domínio
+                    # não devem aparecer sem relação explícita
+                    # com a oportunidade original.
+                    foreign_markers = {
+                        "automação": "automação",
+                        "tarefas administrativas": (
+                            "tarefas administrativas"
+                        ),
+                        "fluxos de automação": (
+                            "fluxos de automação"
+                        ),
+                    }
+
+                    has_foreign_context = any(
+                        marker in generated_text
+                        and marker not in opportunity_text
+                        for marker in foreign_markers
+                    )
+
+                    if has_foreign_context:
+                        result = {
+                            **self._fallback(
+                                opportunity
+                            ),
+                            "ia_rejected_for_incoherence": True,
+                            "ia_incoherence_reason": (
+                                "A resposta da IA introduziu "
+                                "um contexto comercial diferente "
+                                "da oportunidade original."
+                            ),
+                        }
+
             except Exception:
                 # Fallback continua sendo a autoridade
-                # mínima para manter o sistema operacional.
+                # mínima e coerente.
                 pass
 
         return result

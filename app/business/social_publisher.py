@@ -110,6 +110,55 @@ class SocialPublisher:
             f"/instagram/media/{int(product_id)}"
         )
 
+    def _log_publication_failure(
+        self,
+        product_id,
+        caption,
+        stage,
+        reason,
+        creation_id=None,
+        http_status=None,
+    ):
+        try:
+            tracker = publication_tracker.create_publication(
+                product_id=int(product_id),
+                channel="instagram",
+                title="Tentativa de publicação no Instagram",
+                content=caption,
+                source="instagram",
+                campaign="autonomous_factory",
+                medium="failed_publication",
+                status="failed",
+                external_id=(
+                    str(creation_id)
+                    if creation_id
+                    else None
+                ),
+            )
+
+            publication_tracker.log_activity(
+                activity_type="instagram_publication_failure",
+                product_id=int(product_id),
+                title="Falha registrada na publicação do Instagram",
+                description=(
+                    f"Etapa: {stage}. Motivo: {reason}"
+                ),
+                status="failed",
+                metadata={
+                    "stage": stage,
+                    "reason": reason,
+                    "creation_id": creation_id,
+                    "http_status": http_status,
+                    "content": caption,
+                    "tracker_publication_id": tracker.get(
+                        "publication_id"
+                    ),
+                },
+            )
+
+        except Exception:
+            pass
+
     async def publish(self, product, offer, variation=None):
         product_id = (
             product.get("id")
@@ -133,6 +182,12 @@ class SocialPublisher:
         image_path = self._image_path(product_id)
 
         if not image_path:
+            self._log_publication_failure(
+                product_id,
+                None,
+                "image",
+                "Imagem comercial do produto não encontrada.",
+            )
             return {
                 "status": "blocked",
                 "product_id": int(product_id),
@@ -142,6 +197,12 @@ class SocialPublisher:
         image_url = self.image_url(product_id)
 
         if not image_url:
+            self._log_publication_failure(
+                product_id,
+                None,
+                "image_url",
+                "DIGITALFACTORY_PUBLIC_URL não configurada.",
+            )
             return {
                 "status": "blocked",
                 "product_id": int(product_id),
@@ -165,6 +226,12 @@ class SocialPublisher:
             medium = "organic_social"
 
         if not tracking_url:
+            self._log_publication_failure(
+                product_id,
+                None,
+                "tracking",
+                "Não foi possível gerar URL de aquisição.",
+            )
             return {
                 "status": "blocked",
                 "product_id": int(product_id),
@@ -181,6 +248,12 @@ class SocialPublisher:
         )
 
         if not caption:
+            self._log_publication_failure(
+                product_id,
+                caption,
+                "content",
+                "Conteúdo orgânico vazio.",
+            )
             return {
                 "status": "blocked",
                 "product_id": int(product_id),
@@ -199,6 +272,13 @@ class SocialPublisher:
             )
 
             if create_response.status_code != 200:
+                self._log_publication_failure(
+                    product_id,
+                    caption,
+                    "create",
+                    create_response.text,
+                    http_status=create_response.status_code,
+                )
                 return {
                     "status": "failed",
                     "product_id": int(product_id),
@@ -211,6 +291,12 @@ class SocialPublisher:
             creation_id = container.get("id")
 
             if not creation_id:
+                self._log_publication_failure(
+                    product_id,
+                    caption,
+                    "create",
+                    "Instagram não retornou creation_id.",
+                )
                 return {
                     "status": "failed",
                     "product_id": int(product_id),
@@ -244,6 +330,14 @@ class SocialPublisher:
                         break
 
                     if last_status in {"ERROR", "EXPIRED"}:
+                        self._log_publication_failure(
+                            product_id,
+                            caption,
+                            "container",
+                            status_response.text,
+                            creation_id=creation_id,
+                            http_status=status_response.status_code,
+                        )
                         return {
                             "status": "failed",
                             "product_id": int(product_id),
@@ -256,13 +350,26 @@ class SocialPublisher:
                 time.sleep(3)
 
             if not container_ready:
+                reason = (
+                    "Container do Instagram não ficou pronto "
+                    "dentro do tempo limite."
+                )
+
+                self._log_publication_failure(
+                    product_id,
+                    caption,
+                    "container",
+                    reason,
+                    creation_id=creation_id,
+                )
+
                 return {
                     "status": "failed",
                     "product_id": int(product_id),
                     "stage": "container",
                     "creation_id": creation_id,
                     "container_status": last_status,
-                    "reason": "Container do Instagram não ficou pronto dentro do tempo limite.",
+                    "reason": reason,
                 }
 
             publish_response = requests.post(
@@ -275,6 +382,14 @@ class SocialPublisher:
             )
 
             if publish_response.status_code != 200:
+                self._log_publication_failure(
+                    product_id,
+                    caption,
+                    "publish",
+                    publish_response.text,
+                    creation_id=creation_id,
+                    http_status=publish_response.status_code,
+                )
                 return {
                     "status": "failed",
                     "product_id": int(product_id),
@@ -339,6 +454,12 @@ class SocialPublisher:
             }
 
         except Exception as exc:
+            self._log_publication_failure(
+                product_id,
+                caption,
+                "exception",
+                str(exc),
+            )
             return {
                 "status": "failed",
                 "product_id": int(product_id),

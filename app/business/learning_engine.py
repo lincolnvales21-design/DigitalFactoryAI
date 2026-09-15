@@ -2,6 +2,9 @@
 import json
 import sqlite3
 from pathlib import Path
+
+from app.business.acquisition_tracker import acquisition_tracker
+from app.business.publication_tracker import publication_tracker
 from datetime import datetime
 
 
@@ -61,7 +64,8 @@ class LearningEngine:
                 product_type,
                 price,
                 currency,
-                status
+                status,
+                is_test
             FROM products
         """)
 
@@ -76,6 +80,7 @@ class LearningEngine:
                 "price": row[3],
                 "currency": row[4],
                 "status": row[5],
+                "is_test": bool(row[6]),
             }
             for row in rows
         ]
@@ -123,8 +128,22 @@ class LearningEngine:
     # --------------------------------------------------------
 
     def metrics(self):
-        products = self._products()
-        orders = self._orders()
+        products = [
+            product
+            for product in self._products()
+            if not product.get("is_test")
+        ]
+
+        valid_product_ids = {
+            product["id"]
+            for product in products
+        }
+
+        orders = [
+            order
+            for order in self._orders()
+            if order["product_id"] in valid_product_ids
+        ]
 
         total_orders = len(orders)
         paid_orders = [
@@ -190,8 +209,22 @@ class LearningEngine:
     # --------------------------------------------------------
 
     def product_performance(self):
-        products = self._products()
-        orders = self._orders()
+        products = [
+            product
+            for product in self._products()
+            if not product.get("is_test")
+        ]
+
+        valid_product_ids = {
+            product["id"]
+            for product in products
+        }
+
+        orders = [
+            order
+            for order in self._orders()
+            if order["product_id"] in valid_product_ids
+        ]
 
         result = []
 
@@ -220,6 +253,7 @@ class LearningEngine:
                 "price": product["price"],
                 "currency": product["currency"],
                 "status": product["status"],
+                "is_test": product.get("is_test", False),
                 "orders": len(related),
                 "sales": len(paid),
                 "revenue": round(revenue, 2),
@@ -228,12 +262,283 @@ class LearningEngine:
         return result
 
     # --------------------------------------------------------
-    # DECISÃO
+    # INTELIGÊNCIA DE AQUISIÇÃO
     # --------------------------------------------------------
+
+    def acquisition_intelligence(self):
+        """
+        Analisa aquisição comercial excluindo permanentemente
+        produtos marcados como teste.
+
+        A inteligência global do AcquisitionTracker não deve
+        permitir que dados históricos de produtos de teste
+        contaminem decisões autônomas.
+        """
+
+        try:
+            products = self._products()
+
+            test_product_ids = {
+                int(product["id"])
+                for product in products
+                if bool(product.get("is_test"))
+            }
+
+            # Consulta diretamente os eventos para preservar
+            # product_id e permitir filtragem correta.
+            conn = self._connect()
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT
+                    product_id,
+                    channel,
+                    source,
+                    campaign,
+                    medium,
+                    event_type,
+                    COUNT(*) AS events,
+                    COUNT(
+                        CASE
+                            WHEN event_type IN ('order', 'sale')
+                            THEN 1
+                        END
+                    ) AS orders,
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN event_type = 'sale'
+                                THEN amount
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS revenue
+                FROM acquisition_events
+                GROUP BY
+                    product_id,
+                    channel,
+                    source,
+                    campaign,
+                    medium,
+                    event_type
+                ORDER BY revenue DESC, events DESC
+            """)
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            channels = []
+
+            for row in rows:
+                (
+                    product_id,
+                    channel,
+                    source,
+                    campaign,
+                    medium,
+                    event_type,
+                    events,
+                    orders,
+                    revenue,
+                ) = row
+
+                if product_id is not None and int(product_id) in test_product_ids:
+                    continue
+
+                events = int(events or 0)
+                orders = int(orders or 0)
+                revenue = float(revenue or 0)
+
+                conversion = (
+                    (orders / events) * 100
+                    if events > 0
+                    else 0
+                )
+
+                if revenue > 0:
+                    classification = "winner"
+                    priority = 100
+                elif orders > 0:
+                    classification = "promising"
+                    priority = 70
+                elif events >= 5:
+                    classification = "weak"
+                    priority = 30
+                else:
+                    classification = "insufficient_data"
+                    priority = 10
+
+                channels.append({
+                    "product_id": product_id,
+                    "channel": channel,
+                    "source": source,
+                    "campaign": campaign,
+                    "medium": medium,
+                    "event_type": event_type,
+                    "events": events,
+                    "orders": orders,
+                    "revenue": revenue,
+                    "conversion_rate": conversion,
+                    "classification": classification,
+                    "priority": priority,
+                })
+
+            winners = [
+                item
+                for item in channels
+                if item["classification"] == "winner"
+            ]
+
+            promising = [
+                item
+                for item in channels
+                if item["classification"] == "promising"
+            ]
+
+            weak = [
+                item
+                for item in channels
+                if item["classification"] == "weak"
+            ]
+
+            recommended_focus = sorted(
+                winners + promising,
+                key=lambda item: (
+                    item["priority"],
+                    item["revenue"],
+                    item["orders"],
+                    item["events"],
+                ),
+                reverse=True,
+            )
+
+            return {
+                "status": "analyzed",
+                "product_id": None,
+                "channels": channels,
+                "winners": winners,
+                "promising": promising,
+                "weak": weak,
+                "recommended_focus": recommended_focus,
+                "excluded_test_products": sorted(
+                    test_product_ids
+                ),
+            }
+
+        except Exception as exc:
+            return {
+                "status": "error",
+                "product_id": None,
+                "channels": [],
+                "winners": [],
+                "promising": [],
+                "weak": [],
+                "recommended_focus": [],
+                "excluded_test_products": [],
+                "error": str(exc),
+            }
+
+    def publication_intelligence(self):
+        """
+        Analisa publicações comerciais excluindo produtos de teste.
+        """
+
+        try:
+            products = self._products()
+
+            test_product_ids = {
+                int(product["id"])
+                for product in products
+                if bool(product.get("is_test"))
+            }
+
+            publications = publication_tracker.list_publications()
+
+            analyzed = []
+
+            for publication in publications:
+                product_id = publication.get("product_id")
+
+                if (
+                    product_id is not None
+                    and int(product_id) in test_product_ids
+                ):
+                    continue
+
+                publication_id = publication.get("id")
+
+                metrics = publication_tracker.publication_metrics(
+                    publication_id
+                )
+
+                analyzed.append({
+                    "publication_id": publication_id,
+                    "product_id": product_id,
+                    "channel": publication.get("channel"),
+                    "status": publication.get("status"),
+                    "title": publication.get("title"),
+                    "tracking_url": publication.get("tracking_url"),
+                    "views": publication.get("views", 0),
+                    "reach": publication.get("reach", 0),
+                    "likes": publication.get("likes", 0),
+                    "comments": publication.get("comments", 0),
+                    "saved": publication.get("saved", 0),
+                    "shares": publication.get("shares", 0),
+                    "clicks": publication.get("clicks", 0),
+                    "visits": metrics.get("visits", 0),
+                    "orders": metrics.get("orders", 0),
+                    "sales": metrics.get("sales", 0),
+                    "revenue": metrics.get("revenue", 0.0),
+                })
+
+            winners = [
+                item
+                for item in analyzed
+                if (
+                    float(item.get("revenue", 0) or 0) > 0
+                    or int(item.get("sales", 0) or 0) > 0
+                )
+            ]
+
+            promising = [
+                item
+                for item in analyzed
+                if (
+                    int(item.get("visits", 0) or 0) > 0
+                    and int(item.get("sales", 0) or 0) == 0
+                )
+            ]
+
+            return {
+                "status": "analyzed",
+                "publications": analyzed,
+                "winners": winners,
+                "promising": promising,
+                "total_publications": len(analyzed),
+                "excluded_test_products": sorted(
+                    test_product_ids
+                ),
+            }
+
+        except Exception as exc:
+            return {
+                "status": "error",
+                "publications": [],
+                "winners": [],
+                "promising": [],
+                "total_publications": 0,
+                "excluded_test_products": [],
+                "error": str(exc),
+            }
+
 
     def decide(self):
         metrics = self.metrics()
         performance = self.product_performance()
+
+        acquisition = self.acquisition_intelligence()
+        publication = self.publication_intelligence()
 
         winners = [
             item
@@ -289,7 +594,26 @@ class LearningEngine:
             "signals": {
                 "winning_products": len(winners),
                 "products_without_sales": len(candidates),
+                "acquisition_winners": len(
+                    acquisition.get("winners", [])
+                ),
+                "acquisition_promising": len(
+                    acquisition.get("promising", [])
+                ),
+                "publication_winners": len(
+                    publication.get("winners", [])
+                ),
+                "publication_promising": len(
+                    publication.get("promising", [])
+                ),
+                "total_publications": publication.get(
+                    "total_publications",
+                    0,
+                ),
             },
+
+            "acquisition_intelligence": acquisition,
+            "publication_intelligence": publication,
             "capital_policy": {
                 "automatic_investment": False,
                 "automatic_spending": False,

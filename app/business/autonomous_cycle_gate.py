@@ -2,6 +2,8 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.business.learning_engine import learning_engine
+
 
 class AutonomousCycleGate:
     """
@@ -70,7 +72,8 @@ class AutonomousCycleGate:
                 product_type,
                 price,
                 currency,
-                status
+                status,
+                is_test
             FROM products
         """)
 
@@ -111,6 +114,7 @@ class AutonomousCycleGate:
             product
             for product in products
             if self._is_status(product[5], "published")
+            and not bool(product[6])
         ]
 
     def _paid_orders(self, orders):
@@ -206,6 +210,69 @@ class AutonomousCycleGate:
         orders = self._orders()
 
         published = self._published_products(products)
+
+        # ----------------------------------------------------
+        # INTELIGÊNCIA COMERCIAL
+        # ----------------------------------------------------
+        #
+        # O LearningEngine agrega:
+        # publicação → aquisição → pedidos → vendas → receita.
+        #
+        # O Gate usa esses sinais como complemento às vendas
+        # confirmadas da tabela orders.
+        #
+
+        try:
+            learning_decision = learning_engine.decide()
+        except Exception as exc:
+            learning_decision = {
+                "status": "error",
+                "error": str(exc),
+                "signals": {},
+                "acquisition_intelligence": {},
+                "publication_intelligence": {},
+            }
+
+        learning_signals = (
+            learning_decision.get("signals", {})
+            if isinstance(learning_decision, dict)
+            else {}
+        )
+
+        acquisition_intelligence = (
+            learning_decision.get(
+                "acquisition_intelligence",
+                {},
+            )
+            if isinstance(learning_decision, dict)
+            else {}
+        )
+
+        publication_intelligence = (
+            learning_decision.get(
+                "publication_intelligence",
+                {},
+            )
+            if isinstance(learning_decision, dict)
+            else {}
+        )
+
+        # Compatibilidade explícita com o contrato atual
+        # do LearningEngine.
+        #
+        # O Gate trabalha somente com inteligência já filtrada
+        # pelo LearningEngine. Produtos de teste permanecem
+        # fora desta decisão.
+        if not isinstance(learning_signals, dict):
+            learning_signals = {}
+
+        if not isinstance(acquisition_intelligence, dict):
+            acquisition_intelligence = {}
+
+        if not isinstance(publication_intelligence, dict):
+            publication_intelligence = {}
+
+        published = self._published_products(products)
         paid = self._paid_orders(orders)
         pending = self._pending_orders(orders)
 
@@ -246,6 +313,13 @@ class AutonomousCycleGate:
                 ),
                 "should_run": True,
                 "pending_orders": pending_count,
+                "learning_signals": learning_signals,
+                "acquisition_intelligence": (
+                    acquisition_intelligence
+                ),
+                "publication_intelligence": (
+                    publication_intelligence
+                ),
             }
 
             self._save(result)
@@ -286,6 +360,13 @@ class AutonomousCycleGate:
                     "confidence": 0.80,
                     "should_run": True,
                     "pending_orders": pending_count,
+                    "learning_signals": learning_signals,
+                    "acquisition_intelligence": (
+                        acquisition_intelligence
+                    ),
+                    "publication_intelligence": (
+                        publication_intelligence
+                    ),
                 }
 
                 self._save(result)
@@ -303,6 +384,13 @@ class AutonomousCycleGate:
                 "confidence": 0.70,
                 "should_run": True,
                 "pending_orders": pending_count,
+                "learning_signals": learning_signals,
+                "acquisition_intelligence": (
+                    acquisition_intelligence
+                ),
+                "publication_intelligence": (
+                    publication_intelligence
+                ),
             }
 
             self._save(result)
@@ -313,6 +401,87 @@ class AutonomousCycleGate:
         # ----------------------------------------------------
 
         if published:
+
+            # ------------------------------------------------
+            # SINAIS DE AQUISIÇÃO SEM VENDA
+            # ------------------------------------------------
+            #
+            # Se já existem visitas, pedidos ou sinais reais
+            # de aquisição, não tratamos o produto como se
+            # estivesse completamente sem validação.
+            #
+            # A prioridade passa a ser melhorar conversão,
+            # oferta e posicionamento.
+            #
+
+            promising_channels = int(
+                learning_signals.get(
+                    "acquisition_promising",
+                    0,
+                )
+                or 0
+            )
+
+            promising_publications = int(
+                learning_signals.get(
+                    "publication_promising",
+                    0,
+                )
+                or 0
+            )
+
+            publication_winners = int(
+                learning_signals.get(
+                    "publication_winners",
+                    0,
+                )
+                or 0
+            )
+
+            if (
+                promising_channels > 0
+                or promising_publications > 0
+                or publication_winners > 0
+            ):
+
+                target = sorted(
+                    published,
+                    key=lambda product: product[0],
+                    reverse=True,
+                )[0]
+
+                product_id = target[0]
+
+                result = {
+                    "decision": "optimize_offer",
+                    "reason": (
+                        f"O produto #{product_id} ainda não "
+                        "possui venda confirmada suficiente, "
+                        "mas existem sinais reais de aquisição "
+                        "ou desempenho de publicação. "
+                        "A próxima ação deve melhorar "
+                        "conversão, oferta e posicionamento "
+                        "antes de abandonar a oportunidade."
+                    ),
+                    "product_id": product_id,
+                    "confidence": 0.72,
+                    "should_run": True,
+                    "pending_orders": pending_count,
+                    "learning_signals": learning_signals,
+                    "acquisition_intelligence": (
+                        acquisition_intelligence
+                    ),
+                    "publication_intelligence": (
+                        publication_intelligence
+                    ),
+                    "evolution": {
+                        "stagnation_detected": False,
+                        "commercial_signal_detected": True,
+                    },
+                }
+
+                self._save(result)
+                return result
 
             target = sorted(
                 published,
@@ -343,6 +512,13 @@ class AutonomousCycleGate:
                     "product_id": None,
                     "confidence": 0.85,
                     "should_run": True,
+                    "learning_signals": learning_signals,
+                    "acquisition_intelligence": (
+                        acquisition_intelligence
+                    ),
+                    "publication_intelligence": (
+                        publication_intelligence
+                    ),
                     "evolution": {
                         "stagnation_detected": True,
                         "previous_action": "optimize_offer",
@@ -370,8 +546,16 @@ class AutonomousCycleGate:
                 "product_id": product_id,
                 "confidence": 0.65,
                 "should_run": True,
+                "learning_signals": learning_signals,
+                "acquisition_intelligence": (
+                    acquisition_intelligence
+                ),
+                "publication_intelligence": (
+                    publication_intelligence
+                ),
                 "evolution": {
                     "stagnation_detected": False,
+                    "commercial_signal_detected": False,
                 },
             }
 
@@ -392,8 +576,16 @@ class AutonomousCycleGate:
             "product_id": None,
             "confidence": 0.95,
             "should_run": True,
+            "learning_signals": learning_signals,
+            "acquisition_intelligence": (
+                acquisition_intelligence
+            ),
+            "publication_intelligence": (
+                publication_intelligence
+            ),
             "evolution": {
                 "stagnation_detected": False,
+                "commercial_signal_detected": False,
             },
         }
 

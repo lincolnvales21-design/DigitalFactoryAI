@@ -58,8 +58,10 @@ class OptimizationEngine:
                 product_type,
                 price,
                 currency,
-                status
+                status,
+                COALESCE(is_test, 0)
             FROM products
+            WHERE COALESCE(is_test, 0) = 0
         """)
 
         rows = cursor.fetchall()
@@ -73,6 +75,7 @@ class OptimizationEngine:
                 "price": float(row[3] or 0),
                 "currency": row[4],
                 "status": row[5],
+                "is_test": bool(row[6]),
             }
             for row in rows
         ]

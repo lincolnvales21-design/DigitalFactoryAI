@@ -7,3 +7,5 @@ openai
 email-validator
 mercadopago
 cryptography
+
+psycopg[binary]

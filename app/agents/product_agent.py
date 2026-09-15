@@ -1,3 +1,6 @@
+from pathlib import Path
+import textwrap
+
 from app.agents.base import BaseAgent
 from app.memory.agent_memory import memory
 from app.knowledge.knowledge_base import knowledge
@@ -22,10 +25,156 @@ class ProductAgent(BaseAgent):
         self.add_capability("digital_product")
 
 
+    def _generate_social_assets(
+        self,
+        product_id,
+        product_title,
+        problem,
+        audience,
+    ):
+        """
+        Gera automaticamente os ativos visuais mínimos
+        necessários para distribuição orgânica.
+        """
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+
+            design_dir = Path("generated_products/design")
+            design_dir.mkdir(parents=True, exist_ok=True)
+
+            png_path = design_dir / f"product_{int(product_id)}_cover.png"
+            jpg_path = design_dir / f"product_{int(product_id)}_instagram.jpg"
+
+            width, height = 1080, 1350
+
+            image = Image.new(
+                "RGB",
+                (width, height),
+                "#111827",
+            )
+
+            draw = ImageDraw.Draw(image)
+
+            try:
+                title_font = ImageFont.truetype(
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    58,
+                )
+                body_font = ImageFont.truetype(
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    30,
+                )
+                small_font = ImageFont.truetype(
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    24,
+                )
+            except Exception:
+                title_font = ImageFont.load_default()
+                body_font = ImageFont.load_default()
+                small_font = ImageFont.load_default()
+
+            draw.text(
+                (70, 70),
+                "DigitalFactoryAI",
+                fill="white",
+                font=small_font,
+            )
+
+            title_lines = textwrap.wrap(
+                str(product_title),
+                width=26,
+            )
+
+            y = 180
+
+            for line in title_lines[:5]:
+                draw.text(
+                    (70, y),
+                    line,
+                    fill="white",
+                    font=title_font,
+                )
+                y += 72
+
+            y += 35
+
+            problem_text = (
+                f"Problema: {str(problem).strip()}"
+                if problem
+                else "Uma solução prática para um problema real."
+            )
+
+            for line in textwrap.wrap(problem_text, width=42)[:6]:
+                draw.text(
+                    (70, y),
+                    line,
+                    fill="#d1d5db",
+                    font=body_font,
+                )
+                y += 44
+
+            y += 20
+
+            audience_text = (
+                f"Para: {str(audience).strip()}"
+                if audience
+                else "Para quem precisa de uma solução prática."
+            )
+
+            for line in textwrap.wrap(audience_text, width=42)[:4]:
+                draw.text(
+                    (70, y),
+                    line,
+                    fill="#d1d5db",
+                    font=body_font,
+                )
+                y += 44
+
+            footer_y = height - 100
+
+            draw.text(
+                (70, footer_y),
+                "Descubra. Aplique. Evolua.",
+                fill="white",
+                font=small_font,
+            )
+
+            image.save(
+                png_path,
+                "PNG",
+                optimize=True,
+            )
+
+            image.save(
+                jpg_path,
+                "JPEG",
+                quality=90,
+                optimize=True,
+            )
+
+            return {
+                "status": "success",
+                "cover_png": str(png_path),
+                "instagram_jpg": str(jpg_path),
+            }
+
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "error": str(exc),
+            }
+
     def _commercial_product_name(self, research, radar_context):
         """
-        Gera nome específico a partir do problema, público e mecanismo.
-        Evita nomes genéricos e não depende do fallback de ebook.
+        Gera nome comercial específico a partir da oportunidade.
+
+        Prioridade:
+        1. problema específico;
+        2. resultado desejado;
+        3. público-alvo;
+        4. formato/mecanismo quando necessário.
+
+        Nunca deve trocar o tema da oportunidade.
         """
 
         problem = (
@@ -46,57 +195,20 @@ class ProductAgent(BaseAgent):
             or "negócios"
         ).strip()
 
-        mechanism = (
-            radar_context.get("unique_mechanism")
-            or research.get("unique_mechanism")
-            or "sistema prático"
-        ).strip()
-
         problem_clean = problem.rstrip(". ")
-        audience_clean = audience.rstrip(". ")
-        mechanism_clean = mechanism.rstrip(". ")
-
-        # Nomes específicos por padrões comerciais.
-        if "conteúdo comercial" in problem_clean.lower():
-            return (
-                "Autoridade em Conteúdo — "
-                f"Sistema para {audience_clean} transformar conhecimento em conteúdo comercial"
-            )
-
-        if "tarefas administrativas" in problem_clean.lower():
-            return (
-                "Automação Administrativa IA — "
-                f"Sistema para {audience_clean} automatizarem tarefas repetitivas"
-            )
-
-        if "atendimento comercial" in problem_clean.lower():
-            return (
-                "Atendimento que Converte — "
-                f"Sistema comercial para {audience_clean}"
-            )
-
-        if "transição profissional" in problem_clean.lower():
-            return (
-                "Rota de Transição Profissional — "
-                f"Plano prático para {audience_clean}"
-            )
-
-        if "decisões financeiras" in problem_clean.lower():
-            return (
-                "Decisão Financeira Clara — "
-                f"Sistema prático para {audience_clean}"
-            )
-
-        if "sistema de estudo" in problem_clean.lower():
-            return (
-                "Estudo em Sistema — "
-                f"Framework prático para {audience_clean}"
-            )
-
-        # Fallback comercial seguro.
-        # Nunca montar frases com "resolverem + verbo",
-        # pois isso gera nomes gramaticalmente quebrados.
         problem_lower = problem_clean.lower()
+
+        audience_clean = audience.rstrip(". ")
+
+        # ----------------------------------------------------
+        # NOMES ESPECÍFICOS POR OPORTUNIDADE
+        # ----------------------------------------------------
+
+        if "avaliar rapidamente se uma ideia de negócio" in problem_lower:
+            return (
+                "Ideia que Vale o Teste — "
+                f"Diagnóstico para {audience_clean}"
+            )
 
         if "reduzir erros de atendimento" in problem_lower:
             return (
@@ -104,39 +216,78 @@ class ProductAgent(BaseAgent):
                 "Sistema de Respostas Comerciais para Pequenos Negócios"
             )
 
+        if "decisões financeiras mensais" in problem_lower:
+            return (
+                "Decisão Financeira Clara — "
+                f"Diagnóstico para {audience_clean}"
+            )
+
         if "rotina sustentável" in problem_lower:
             return (
                 "Rotina Sustentável — "
-                "Planner de Organização para Profissionais com Rotina Intensa"
+                f"Planner para {audience_clean}"
             )
 
-        if "decisões repetitivas" in problem_lower:
+        if "tarefa" in problem_lower and "administrativ" in problem_lower:
             return (
-                "Semana sem Sobrecarga — "
-                "Sistema de Organização para Pessoas com Muitas Responsabilidades"
+                "Automação Administrativa IA — "
+                f"Sistema para {audience_clean}"
             )
 
-        if "decisões financeiras" in problem_lower:
+        if "conversas importantes" in problem_lower:
             return (
-                "Decisão Financeira Clara — "
-                "Sistema Prático para Adultos com Renda Variável"
+                "Conversas que Importam — "
+                f"Kit de Decisão para {audience_clean}"
             )
 
         if "transição profissional" in problem_lower:
             return (
                 "Rota de Transição Profissional — "
-                f"Plano Prático para {audience_clean}"
+                f"Checklist para {audience_clean}"
+            )
+
+        if "conhecimento profissional" in problem_lower and "conteúdo comercial" in problem_lower:
+            return (
+                "Autoridade em Conteúdo — "
+                f"Sistema Comercial para {audience_clean}"
             )
 
         if "sistema de estudo" in problem_lower:
             return (
                 "Estudo em Sistema — "
-                f"Framework Prático para {audience_clean}"
+                f"Planner para {audience_clean}"
             )
 
+        if "ideia de negócio" in problem_lower and (
+            "testada" in problem_lower or
+            "testar" in problem_lower
+        ):
+            return (
+                "Ideia que Vale o Teste — "
+                f"Diagnóstico para {audience_clean}"
+            )
+
+        if "decisões repetitivas" in problem_lower:
+            return (
+                "Semana sem Sobrecarga — "
+                f"Sistema de Organização para {audience_clean}"
+            )
+
+        # ----------------------------------------------------
+        # FALLBACK SEGURO
+        # ----------------------------------------------------
+
+        compact_problem = (
+            problem_clean
+            .replace("avaliar", "Avaliar")
+            .replace("criar", "Criar")
+            .replace("reduzir", "Reduzir")
+            .replace("organizar", "Organizar")
+        )
+
         return (
-            f"{area.title()} em Ação — "
-            f"Sistema Prático para {audience_clean}"
+            f"{area.title()} — "
+            f"{compact_problem[:90]}"
         )
 
     async def execute_task(self, task: str):
@@ -514,6 +665,16 @@ class ProductAgent(BaseAgent):
             ).get("status") == "approved"
         )
 
+        media_result = None
+
+        if factory_approved:
+            media_result = self._generate_social_assets(
+                product_id=product_id,
+                product_title=product_title,
+                problem=problem,
+                audience=target_audience,
+            )
+
         if product_format == "ebook" and factory_approved:
 
             try:
@@ -580,6 +741,8 @@ class ProductAgent(BaseAgent):
                 "factory_status": factory_result.get(
                     "status"
                 ),
+
+                "media": media_result,
 
             },
 

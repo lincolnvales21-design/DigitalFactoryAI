@@ -256,10 +256,54 @@ class OfferEngine:
             if audience_for_copy.lower() == "profissionais autônomos":
                 audience_for_copy = "profissional autônomo"
 
-        customer_problem_sentence = (
-            f"Você é {audience_for_copy} e perde tempo com "
-            f"{problem_for_copy}?"
+        # ----------------------------------------------------
+        # FRASES NATURAIS DE COPY
+        # ----------------------------------------------------
+
+        audience_lower = str(audience_for_copy).lower().strip()
+        problem_lower = str(problem_for_copy).lower().strip()
+
+        if (
+            "muitas responsabilidades" in audience_lower
+            and problem_lower.startswith("reduzir ")
+        ):
+            customer_problem_sentence = (
+                f"Você lida com muitas responsabilidades e precisa "
+                f"{problem_for_copy}?"
+            )
+
+        elif (
+            "empreendedores iniciantes" in audience_lower
+            and problem_lower.startswith("avaliar ")
+        ):
+            customer_problem_sentence = (
+                f"Você está começando um negócio e precisa "
+                f"{problem_for_copy}?"
+            )
+
+        elif problem_lower.startswith(("avaliar ", "criar ", "organizar ", "reduzir ")):
+            customer_problem_sentence = (
+                f"Você precisa {problem_for_copy}?"
+            )
+
+        elif audience_lower.endswith("s"):
+            customer_problem_sentence = (
+                f"Você faz parte do público de {audience_for_copy} "
+                f"e enfrenta este desafio: {problem_for_copy}?"
+            )
+
+        else:
+            customer_problem_sentence = (
+                f"Você é {audience_for_copy} e enfrenta "
+                f"{problem_for_copy}?"
+            )
+
+        promise_prefix = (
+            problem_lower.split(" ", 1)[0]
+            if " " in problem_lower
+            else problem_lower
         )
+        benefit_action = problem_for_copy
 
         # Variáveis canônicas usadas pelo restante do fallback.
         problem = clean_problem
@@ -443,31 +487,61 @@ class OfferEngine:
 
         differentiation = clean_differentiation
 
-        promise = (
-            f"Aprender como lidar com {problem_for_copy} "
-            f"de forma mais simples, prática e organizada, "
-            f"usando um método pensado para {audience}."
-        )
+        if problem_lower.startswith("avaliar "):
+            promise = (
+                f"Aprender a {problem_for_copy} "
+                f"de forma mais simples, prática e organizada, "
+                f"usando um método pensado para {audience}."
+            )
 
-        benefits = [
-            f"Identificar quais {problem_for_copy} mais consomem tempo.",
-            f"Aprender uma abordagem prática para lidar com {problem_for_copy}.",
-            "Aplicar o método passo a passo.",
-            "Usar exemplos e checklists para executar.",
-            "Ter um plano claro para continuar depois da primeira aplicação.",
-        ]
+            benefits = [
+                f"Aplicar critérios claros para {problem_for_copy}.",
+                f"Identificar rapidamente os pontos que merecem atenção.",
+                "Comparar os principais sinais antes de tomar uma decisão.",
+                "Usar um diagnóstico estruturado para evitar decisões precipitadas.",
+                "Ter um próximo passo claro depois da avaliação.",
+            ]
+
+        elif problem_lower.startswith(("criar ", "organizar ", "reduzir ")):
+            promise = (
+                f"Aprender a {problem_for_copy} "
+                f"de forma mais simples, prática e organizada, "
+                f"usando um método pensado para {audience}."
+            )
+
+            benefits = [
+                f"Entender como {problem_for_copy}.",
+                f"Aplicar uma abordagem prática para executar essa tarefa.",
+                "Seguir um processo estruturado passo a passo.",
+                "Usar exemplos e checklists para executar.",
+                "Ter um plano claro para continuar depois da primeira aplicação.",
+            ]
+
+        else:
+            promise = (
+                f"Encontrar uma forma mais simples, prática e organizada "
+                f"de lidar com {problem_for_copy}, com um método pensado "
+                f"para {audience}."
+            )
+
+            benefits = [
+                f"Entender melhor {problem_for_copy}.",
+                f"Aplicar uma abordagem prática para lidar com esse problema.",
+                "Seguir um processo estruturado passo a passo.",
+                "Usar exemplos e checklists para executar.",
+                "Ter um plano claro para continuar depois da primeira aplicação.",
+            ]
 
         sales_copy = (
             f"{offer_name}\n\n"
             f"{customer_problem_sentence}\n\n"
-            f"Veja como identificar o que pode ser simplificado "
-            f"ou automatizado e transformar tarefas repetitivas "
-            f"em fluxos mais simples e organizados.\n\n"
+            f"Veja uma abordagem prática para resolver o problema "
+            f"e aplicar o método proposto neste produto.\n\n"
             f"Uma pequena amostra do método:\n"
-            f"1. Identifique o que está se repetindo.\n"
-            f"2. Separe o que pode ser simplificado ou automatizado.\n"
-            f"3. Estruture o primeiro fluxo de execução.\n"
-            f"4. Teste e ajuste antes de ampliar.\n\n"
+            f"1. Entenda o problema específico.\n"
+            f"2. Avalie sua situação atual.\n"
+            f"3. Aplique o primeiro passo do método.\n"
+            f"4. Observe o resultado e ajuste a abordagem.\n\n"
             f"Isso é apenas uma amostra. O conteúdo completo aprofunda "
             f"o método, apresenta o passo a passo, exemplos, checklists "
             f"e orientações para colocar tudo em prática.\n\n"
@@ -486,9 +560,19 @@ class OfferEngine:
             "status": "created",
             "offer_name": offer_name,
             "positioning": (
-                f"Conteúdo prático para {audience} que precisam "
-                f"lidar melhor com {problem_for_copy}, usando uma abordagem "
-                f"simples e orientada à aplicação."
+                (
+                    f"Conteúdo prático para {audience} que precisam "
+                    f"{problem_for_copy}, usando uma abordagem "
+                    f"simples e orientada à aplicação."
+                )
+                if problem_lower.startswith(
+                    ("avaliar ", "criar ", "organizar ", "reduzir ")
+                )
+                else (
+                    f"Conteúdo prático para {audience} que precisam "
+                    f"lidar melhor com {problem_for_copy}, usando uma abordagem "
+                    f"simples e orientada à aplicação."
+                )
             ),
             "promise": promise,
             "problem": clean_problem,

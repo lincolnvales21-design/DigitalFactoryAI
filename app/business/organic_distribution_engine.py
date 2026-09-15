@@ -47,29 +47,24 @@ class OrganicDistributionEngine:
             if str(item).strip()
         ][:5]
 
-        cta = offer.get("cta") or "Quero começar agora"
+        cta = offer.get("cta") or "Quero conhecer a solução"
 
-        description = (
-            product.get("description")
-            if isinstance(product.get("description"), str)
-            else ""
+        problem = (
+            offer.get("problem")
+            or product.get("problem")
+            or "um problema específico"
         )
-        description_lower = description.lower()
 
-        if (
-            "automatizar tarefas administrativas" in description_lower
-            or "tarefas administrativas repetitivas" in description_lower
-        ):
-            problem = (
-                "Profissionais autônomos perdem tempo com tarefas "
-                "administrativas repetitivas que poderiam ser simplificadas "
-                "ou automatizadas."
-            )
-        else:
-            problem = (
-                product.get("problem")
-                or "Muitas pessoas sabem o que precisam fazer, mas não sabem por onde começar."
-            )
+        audience = (
+            offer.get("target_audience")
+            or product.get("target_audience")
+            or "pessoas que enfrentam esse problema"
+        )
+
+        problem = str(problem).strip().rstrip(".")
+        audience = str(audience).strip().rstrip(".")
+
+        problem_lower = problem.lower()
 
         base = {
             "product_id": product_id,
@@ -78,10 +73,23 @@ class OrganicDistributionEngine:
         }
 
         benefit_text = benefits[0] if benefits else promise
-        education_text = benefits[1] if len(benefits) > 1 else benefit_text
-        checklist_text = "\n".join(
-            f"☐ {item}" for item in benefits[:3]
-        ) or "☐ Identifique o problema\n☐ Escolha uma ação prática\n☐ Teste e ajuste"
+        education_text = (
+            benefits[1]
+            if len(benefits) > 1
+            else benefit_text
+        )
+
+        checklist_text = (
+            "\n".join(
+                f"☐ {item}"
+                for item in benefits[:3]
+            )
+            or (
+                "☐ Entenda o problema\n"
+                "☐ Escolha uma ação prática\n"
+                "☐ Teste e ajuste"
+            )
+        )
 
         variations = []
 
@@ -90,23 +98,36 @@ class OrganicDistributionEngine:
             "content_type": "problem",
             "title": "Você também enfrenta isso?",
             "caption": (
-                f"{problem}\n\n"
+                f"{problem}.\n\n"
+                f"Para {audience}, entender esse problema "
+                f"é o primeiro passo para encontrar uma solução prática.\n\n"
                 f"{promise}\n\n"
                 f"{cta}\n\n"
                 "#DigitalFactoryAI #NegociosDigitais #Empreendedorismo"
             ),
         })
 
+        if problem_lower.startswith(("avaliar ", "criar ", "organizar ", "reduzir ")):
+            benefit_open = (
+                f"Quando você entende melhor o que precisa fazer, "
+                f"fica mais fácil agir com clareza.\n\n"
+            )
+        else:
+            benefit_open = (
+                f"Quando você entende melhor {problem_lower}, "
+                f"fica mais fácil agir com clareza.\n\n"
+            )
+
         variations.append({
             **base,
             "content_type": "benefit",
             "title": "O que pode mudar",
             "caption": (
-                f"Para quem trabalha por conta própria, cada tarefa administrativa repetitiva pode consumir tempo que deveria estar sendo usado para atender clientes e fazer o negócio crescer.\n\n"
-                f"{benefit_text}\n\n"
-                f"{promise}\n\n"
-                f"{cta}\n\n"
-                "#DigitalFactoryAI #IA #Automacao #Produtividade"
+                benefit_open
+                + f"{benefit_text}\n\n"
+                + f"{promise}\n\n"
+                + f"{cta}\n\n"
+                + "#DigitalFactoryAI #IA #NegociosDigitais"
             ),
         })
 
@@ -115,22 +136,64 @@ class OrganicDistributionEngine:
             "content_type": "education",
             "title": "Uma dica prática",
             "caption": (
-                f"Uma coisa importante sobre esse problema:\n\n"
+                f"Uma coisa importante sobre {problem_lower}:\n\n"
                 f"{education_text}\n\n"
-                f"A ideia é transformar conhecimento em uma aplicação que você consiga usar no dia a dia.\n\n"
-                f"#DigitalFactoryAI #Aprendizado #Tecnologia"
+                f"Comece por uma pequena ação e observe o que muda.\n\n"
+                "#DigitalFactoryAI #Aprendizado #Tecnologia"
             ),
         })
+
+        if problem_lower.startswith(
+            ("avaliar ", "criar ", "organizar ", "reduzir ")
+        ):
+            transformation_open = (
+                f"Você não precisa tentar {problem_lower} de uma vez."
+            )
+            mistake_open = (
+                f"Um erro comum ao tentar {problem_lower} "
+                f"é tentar resolver tudo ao mesmo tempo."
+            )
+            checklist_open = (
+                f"Antes de {problem_lower}, confira:"
+            )
+            question_open = (
+                f"Qual é hoje a maior dificuldade que você encontra "
+                f"ao tentar {problem_lower}?"
+            )
+            curiosity_open = (
+                f"Muitas vezes, o problema começa antes da ação: "
+                f"quando não fica claro como {problem_lower}."
+            )
+        else:
+            transformation_open = (
+                f"Você não precisa resolver {problem_lower} de uma vez."
+            )
+            mistake_open = (
+                f"Um erro comum ao lidar com {problem_lower} "
+                f"é tentar resolver tudo ao mesmo tempo."
+            )
+            checklist_open = (
+                f"Antes de agir sobre {problem_lower}, confira:"
+            )
+            question_open = (
+                f"Qual é hoje a maior dificuldade relacionada a "
+                f"{problem_lower}?"
+            )
+            curiosity_open = (
+                f"Muitas vezes, o problema começa antes da ação: "
+                f"quando não fica claro como lidar com {problem_lower}."
+            )
 
         variations.append({
             **base,
             "content_type": "transformation",
             "title": "Do problema para a ação",
             "caption": (
-                f"Não precisa começar tentando resolver tudo de uma vez.\n\n"
-                f"Comece identificando uma tarefa, organize o processo e avance a partir daí.\n\n"
+                f"{transformation_open}\n\n"
+                "Comece entendendo a situação, escolha uma prioridade "
+                "e aplique o próximo passo do método.\n\n"
                 f"{promise}\n\n"
-                f"#DigitalFactoryAI #Produtividade #IA"
+                "#DigitalFactoryAI #Estratégia #Empreendedorismo"
             ),
         })
 
@@ -159,11 +222,11 @@ class OrganicDistributionEngine:
             "content_type": "common_mistake",
             "title": "Um erro comum",
             "caption": (
-                f"Um erro comum é tentar automatizar todas as tarefas administrativas de uma vez.\n\n"
-                f"Para quem trabalha por conta própria, isso pode gerar mais confusão do que economia de tempo.\n\n"
-                f"Comece identificando uma tarefa administrativa repetitiva que consome tempo todos os dias.\n\n"
-                f"Automatize uma etapa, teste o resultado e só depois avance para a próxima.\n\n"
-                "#DigitalFactoryAI #IA #Automacao #Produtividade"
+                f"{mistake_open}\n\n"
+                "Escolha uma prioridade, aplique uma mudança "
+                "e observe o resultado antes de avançar.\n\n"
+                f"{promise}\n\n"
+                "#DigitalFactoryAI #Estratégia #Produtividade"
             ),
         })
 
@@ -172,10 +235,10 @@ class OrganicDistributionEngine:
             "content_type": "checklist",
             "title": "Checklist rápido",
             "caption": (
-                f"Antes de começar, confira:\n\n"
+                f"{checklist_open}\n\n"
                 f"{checklist_text}\n\n"
-                f"Pequenas melhorias consistentes podem transformar uma rotina.\n\n"
-                "#DigitalFactoryAI #Checklist #Produtividade"
+                "Pequenas decisões bem estruturadas ajudam a avançar.\n\n"
+                "#DigitalFactoryAI #Checklist #NegociosDigitais"
             ),
         })
 
@@ -184,10 +247,11 @@ class OrganicDistributionEngine:
             "content_type": "question",
             "title": "Uma pergunta para você",
             "caption": (
-                f"Qual tarefa repetitiva mais toma seu tempo hoje?\n\n"
-                f"Às vezes, encontrar a resposta para essa pergunta já mostra onde começar uma mudança.\n\n"
-                f"Conta nos comentários.\n\n"
-                "#DigitalFactoryAI #IA #Empreendedorismo"
+                f"{question_open}\n\n"
+                "Identificar isso pode mostrar qual deve ser "
+                "o próximo passo.\n\n"
+                "Conte nos comentários.\n\n"
+                "#DigitalFactoryAI #Reflexão #Empreendedorismo"
             ),
         })
 
@@ -196,10 +260,10 @@ class OrganicDistributionEngine:
             "content_type": "alert",
             "title": "Fique atento",
             "caption": (
-                f"Se uma tarefa é repetida todos os dias, vale parar e perguntar:\n\n"
-                f"isso realmente precisa continuar sendo feito da mesma maneira?\n\n"
-                f"{problem}\n\n"
-                "#DigitalFactoryAI #Tecnologia #Produtividade"
+                f"Se {problem_lower} está impedindo você de avançar, "
+                "vale revisar como essa decisão está sendo tomada.\n\n"
+                f"{promise}\n\n"
+                "#DigitalFactoryAI #Estratégia #Tecnologia"
             ),
         })
 
@@ -208,10 +272,9 @@ class OrganicDistributionEngine:
             "content_type": "curiosity",
             "title": "Já reparou nisso?",
             "caption": (
-                f"Muitas tarefas que parecem pequenas acabam consumindo horas ao longo de uma semana.\n\n"
-                f"O primeiro passo é perceber onde esse tempo está desaparecendo.\n\n"
+                f"{curiosity_open}\n\n"
                 f"{promise}\n\n"
-                "#DigitalFactoryAI #Curiosidade #IA"
+                "#DigitalFactoryAI #Curiosidade #NegociosDigitais"
             ),
         })
 
@@ -229,32 +292,109 @@ class OrganicDistributionEngine:
             product_id=int(product_id)
         )
 
-        used_types = {
-            row.get("medium")
-            for row in existing
+        instagram_publications = [
+            row for row in existing
             if row.get("channel") == "instagram"
             and row.get("status") == "published"
+        ]
+
+        # Publicações rejeitadas/deletadas/suprimidas nunca
+        # podem voltar para a fila em ciclos futuros.
+        suppressed = []
+
+        for row in existing:
+            row_status = str(
+                row.get("status") or ""
+            ).strip().lower()
+
+            if row_status in {
+                "deleted",
+                "rejected",
+                "suppressed",
+            }:
+                suppressed.append(row)
+
+        used_types = {
+            row.get("medium")
+            for row in instagram_publications
         }
 
-        for variation in variations:
+        used_captions = {
+            " ".join(
+                str(row.get(key) or "").split()
+            ).strip().lower()
+            for row in instagram_publications
+            for key in ("caption", "content", "text")
+            if str(row.get(key) or "").strip()
+        }
+
+        suppressed_hashes = {
+            publication_tracker._content_hash(
+                row.get("content")
+                or row.get("caption")
+                or row.get("text")
+            )
+            for row in suppressed
+            if (
+                row.get("content")
+                or row.get("caption")
+                or row.get("text")
+            )
+        }
+
+        # Primeiro: privilegia tipos ainda não utilizados.
+        candidates = [
+            variation
+            for variation in variations
+            if f"organic_social:{variation['content_type']}" not in used_types
+        ]
+
+        # Se todos os tipos já foram usados, permite um novo ciclo,
+        # mas somente com texto realmente diferente do histórico.
+        if not candidates:
+            candidates = variations
+
+        for variation in candidates:
+            normalized_caption = " ".join(
+                str(variation.get("caption") or "").split()
+            ).strip().lower()
+
+            if normalized_caption in used_captions:
+                continue
+
+            variation_hash = publication_tracker._content_hash(
+                variation.get("caption")
+            )
+
+            if variation_hash in suppressed_hashes:
+                continue
+
+            if publication_tracker.is_suppressed(
+                product_id=int(product_id),
+                channel="instagram",
+                content=variation.get("caption"),
+            ):
+                continue
+
             medium = f"organic_social:{variation['content_type']}"
 
-            if medium not in used_types:
-                acquisition = acquisition_tracker.generate_link(
-                    product_id=int(product_id),
-                    channel="instagram",
-                    source="instagram",
-                    campaign=f"produto-{int(product_id)}",
-                    medium=medium,
-                )
+            acquisition = acquisition_tracker.generate_link(
+                product_id=int(product_id),
+                channel="instagram",
+                source="instagram",
+                campaign=f"produto-{int(product_id)}",
+                medium=medium,
+            )
 
-                variation["tracking_url"] = acquisition.get(
-                    "tracking_url"
-                )
-                variation["medium"] = medium
+            variation["tracking_url"] = acquisition.get(
+                "tracking_url"
+            )
+            variation["medium"] = medium
 
-                return variation
+            return variation
 
+        # Segurança: nunca devolve silenciosamente uma publicação
+        # idêntica a uma já publicada.
         return None
 
 

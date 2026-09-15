@@ -12,6 +12,7 @@ from app.business.sales_engine import sales_engine
 from app.business.social_publisher import social_publisher
 from app.business.organic_distribution_engine import organic_distribution_engine
 from app.business.learning_engine import learning_engine
+from app.business.emergency_shutdown import emergency_shutdown
 from app.business.engine import business_engine
 from app.products.factory import product_factory
 
@@ -91,9 +92,37 @@ class AutonomousBusinessEngine:
 
     async def run_once(self):
 
+        # ========================================================
+        # KILL SWITCH — BARREIRA 1
+        # ========================================================
+
+        if emergency_shutdown.is_emergency_off():
+            return {
+                "status": "emergency_off",
+                "executed": False,
+                "message": (
+                    "Business Engine bloqueado pelo "
+                    "Kill Switch antes da produção."
+                ),
+            }
+
         # Garante que todos os agentes estejam disponíveis
         # antes de iniciar qualquer ciclo comercial.
         load_agents()
+
+        # ========================================================
+        # KILL SWITCH — BARREIRA 2
+        # ========================================================
+
+        if emergency_shutdown.is_emergency_off():
+            return {
+                "status": "emergency_off",
+                "executed": False,
+                "message": (
+                    "Produção interrompida pelo "
+                    "Kill Switch após carregamento dos agentes."
+                ),
+            }
 
         if self._lock.locked():
             return {
@@ -115,6 +144,16 @@ class AutonomousBusinessEngine:
                 # ------------------------------------------------
                 # 1. DESCOBRIR OPORTUNIDADE
                 # ------------------------------------------------
+
+                if emergency_shutdown.is_emergency_off():
+                    return {
+                        "status": "emergency_off",
+                        "executed": False,
+                        "message": (
+                            "Descoberta de oportunidade bloqueada "
+                            "pelo Kill Switch."
+                        ),
+                    }
 
                 opportunity_result = await opportunity_engine.select()
 
@@ -456,10 +495,26 @@ class AutonomousBusinessEngine:
 
                     else:
 
-                        publication_result = sales_engine.publish(
-                            product_id=int(product_id),
-                            offer=offer_result,
-                        )
+                        # ====================================================
+                        # KILL SWITCH — BARREIRA 3
+                        # ====================================================
+
+                        if emergency_shutdown.is_emergency_off():
+                            publication_result = {
+                                "status": "emergency_off",
+                                "product_id": int(product_id),
+                                "reason": (
+                                    "Publicação comercial bloqueada "
+                                    "pelo Kill Switch."
+                                ),
+                            }
+
+                        else:
+
+                            publication_result = sales_engine.publish(
+                                product_id=int(product_id),
+                                offer=offer_result,
+                            )
 
                         # ------------------------------------------------
                         # PUBLICAÇÃO ORGÂNICA AUTOMÁTICA
@@ -496,13 +551,29 @@ class AutonomousBusinessEngine:
 
                             if organic_variation:
 
-                                social_result = (
-                                    await social_publisher.publish(
+                                # =================================================
+                                # KILL SWITCH — BARREIRA 4
+                                # =================================================
+
+                                if emergency_shutdown.is_emergency_off():
+                                    social_result = {
+                                        "status": "emergency_off",
+                                        "published": False,
+                                        "reason": (
+                                            "Publicação social bloqueada "
+                                            "pelo Kill Switch."
+                                        ),
+                                    }
+
+                                else:
+
+                                    social_result = (
+                                        await social_publisher.publish(
                                         product=social_product,
                                         offer=offer_result,
                                         variation=organic_variation,
+                                        )
                                     )
-                                )
 
                                 publication_result["social"] = social_result
                                 publication_result["organic_variation"] = {

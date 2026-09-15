@@ -20,6 +20,10 @@ from app.business.supervisor import (
     supervisor
 )
 
+from app.business.autonomous_cycle_gate import (
+    autonomous_cycle_gate,
+)
+
 from app.business.emergency_shutdown import (
     emergency_shutdown
 )
@@ -198,12 +202,54 @@ class AutonomousCycleOrchestrator:
                 )
 
                 # =============================================
-                # 2. DECISÃO AUTÔNOMA
+                # 2. CYCLE GATE — DECISÃO CANÔNICA
                 # =============================================
 
-                decision = (
-                    autonomous_action_orchestrator
-                    .get_decision()
+                gate = autonomous_cycle_gate.analyze()
+
+                if not isinstance(gate, dict):
+                    gate = {
+                        "decision": "wait",
+                        "reason": (
+                            "Cycle Gate não retornou "
+                            "uma decisão válida."
+                        ),
+                        "should_run": False,
+                    }
+
+                gate_decision = gate.get(
+                    "decision",
+                    "wait",
+                )
+
+                decision = dict(gate)
+
+                decision["gate_decision"] = gate_decision
+
+                decision["cycle_action"] = {
+                    "expand_winner": "expand_product",
+                    "validate_product": "validate_product",
+                    "optimize_offer": "optimize_offer",
+                    "discover_opportunity": "discover_opportunity",
+                    "wait": "wait",
+                }.get(
+                    gate_decision,
+                    gate_decision,
+                )
+
+                decision["optimization_action"] = (
+                    decision["cycle_action"]
+                )
+
+                decision["action"] = (
+                    decision["cycle_action"]
+                )
+
+                decision["should_run"] = bool(
+                    gate.get(
+                        "should_run",
+                        True,
+                    )
                 )
 
                 # =============================================
@@ -249,13 +295,41 @@ class AutonomousCycleOrchestrator:
                 if isinstance(decision, dict):
 
                     action_name = (
-                        decision.get("action")
+                        decision.get("cycle_action")
+                        or decision.get("action")
                         or decision.get("decision")
                         or decision.get("next_action")
                     )
 
                 # =============================================
-                # 4. NOVA OPORTUNIDADE
+                # 4. WAIT — GATE DETERMINOU AGUARDAR
+                # =============================================
+
+                if (
+                    decision.get("should_run") is False
+                    or action_name in {
+                        "wait",
+                        "WAIT",
+                    }
+                ):
+
+                    action = {
+                        "status": "waiting",
+                        "executed": False,
+                        "action": "wait",
+                        "reason": decision.get(
+                            "reason",
+                            "Cycle Gate determinou aguardar.",
+                        ),
+                        "decision": decision,
+                    }
+
+                    execution_mode = (
+                        "autonomous_cycle_gate"
+                    )
+
+                # =============================================
+                # 5. NOVA OPORTUNIDADE
                 # =============================================
 
                 discovery_actions = {
@@ -296,9 +370,13 @@ class AutonomousCycleOrchestrator:
                     # 5. AÇÃO OPERACIONAL
                     # =========================================
 
+                    action_plan = {
+                        "decision": decision,
+                    }
+
                     action = await (
                         autonomous_action_orchestrator
-                        .execute_decision(decision)
+                        .execute_decision(action_plan)
                     )
 
                     execution_mode = (

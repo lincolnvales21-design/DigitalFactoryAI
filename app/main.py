@@ -49,7 +49,19 @@ from app.agents.router import AgentRouter
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_database()
-    yield
+
+    from app.business.autonomous_runtime import (
+        autonomous_runtime,
+    )
+
+    autonomous_runtime.start()
+
+    try:
+        yield
+    finally:
+        await autonomous_runtime.stop(
+            owner_action=False
+        )
 
 
 app = FastAPI(
@@ -168,16 +180,6 @@ from app.business.autonomous_runtime import (
 )
 
 
-@app.on_event("startup")
-async def start_autonomous_runtime():
-    autonomous_runtime.start()
-
-
-@app.on_event("shutdown")
-async def stop_autonomous_runtime():
-    await autonomous_runtime.stop()
-
-
 # ==========================================================
 # DIGITALFACTORYAI — AUTONOMOUS RUNTIME STATUS
 # ==========================================================
@@ -202,10 +204,16 @@ async def ensure_autonomous_runtime(
     try:
         if (
             autonomous_runtime.enabled
+            and not autonomous_runtime.status()["emergency_off"]
+            and not autonomous_runtime.status()["owner_stopped"]
             and (
                 autonomous_runtime._task is None
                 or autonomous_runtime._task.done()
             )
+            and request.url.path not in {
+                "/emergency/shutdown",
+                "/emergency/release",
+            }
         ):
             autonomous_runtime.start()
     except Exception:

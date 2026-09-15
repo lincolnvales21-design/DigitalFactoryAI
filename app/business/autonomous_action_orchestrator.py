@@ -491,6 +491,108 @@ class AutonomousActionOrchestrator:
             return result
 
         # ====================================================
+        # PIPELINE AUTÔNOMO DE NOVA OPORTUNIDADE
+        # ====================================================
+        #
+        # A descoberta não termina no ResearchAgent.
+        #
+        # Fluxo:
+        # ResearchAgent
+        #     ↓ memória
+        # ProductAgent
+        #     ↓ memória
+        # MarketingAgent
+        #     ↓
+        # oferta + página de venda + checkout
+        #     ↓
+        # distribuição orgânica
+        #
+        # Nenhum gasto pago é permitido neste estágio.
+        # O ProductAgent e o MarketingAgent já possuem seus
+        # próprios contratos de memória.
+        #
+
+        if action in {
+            "discover_opportunity",
+            "discover_new_opportunity",
+        }:
+            # A descoberta comercial possui um único motor oficial.
+            # O AutonomousBusinessEngine executa:
+            #
+            # oportunidade
+            # → novidade/diferenciação
+            # → ResearchAgent
+            # → ProductAgent
+            # → MarketingAgent
+            # → oferta/publicação
+            # → distribuição orgânica
+            # → aprendizado
+            #
+            # Não duplicar esse pipeline aqui.
+
+            if emergency_shutdown.is_emergency_off():
+                result = {
+                    "status": "emergency_off",
+                    "executed": False,
+                    "action": action,
+                    "agent": "AutonomousBusinessEngine",
+                    "message": (
+                        "Descoberta bloqueada pelo Kill Switch."
+                    ),
+                }
+
+                self._log(
+                    action=action,
+                    agent="AutonomousBusinessEngine",
+                    product_id=None,
+                    status="blocked",
+                    objective=objective,
+                    result=result,
+                )
+
+                return result
+
+            from app.business.autonomous_engine import (
+                autonomous_business_engine,
+            )
+
+            discovery_result = (
+                await autonomous_business_engine.run_once()
+            )
+
+            if not isinstance(discovery_result, dict):
+                discovery_result = {
+                    "status": "failed",
+                    "executed": False,
+                    "action": action,
+                    "agent": "AutonomousBusinessEngine",
+                    "error": (
+                        "AutonomousBusinessEngine não retornou "
+                        "um resultado estruturado."
+                    ),
+                }
+
+            discovery_result.setdefault("action", action)
+            discovery_result.setdefault(
+                "agent",
+                "AutonomousBusinessEngine",
+            )
+
+            self._log(
+                action=action,
+                agent="AutonomousBusinessEngine",
+                product_id=discovery_result.get("product_id"),
+                status=discovery_result.get(
+                    "status",
+                    "unknown",
+                ),
+                objective=objective,
+                result=discovery_result,
+            )
+
+            return discovery_result
+
+        # ====================================================
         # NOVA BARREIRA DE SEGURANÇA
         # ====================================================
 

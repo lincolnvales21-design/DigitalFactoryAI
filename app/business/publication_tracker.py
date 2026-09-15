@@ -62,6 +62,7 @@ class PublicationTracker:
     def __init__(self):
         self._ensure_tables()
         self._ensure_metrics_columns()
+        self._ensure_suppression_table()
 
     def _ensure_metrics_columns(self):
         columns = {
@@ -88,6 +89,163 @@ class PublicationTracker:
                     )
 
             conn.commit()
+
+    def _ensure_suppression_table(self):
+        with self._connect() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS publication_suppressions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    product_id INTEGER,
+                    channel TEXT,
+                    content_hash TEXT,
+                    reason TEXT NOT NULL,
+                    publication_id INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(product_id, channel, content_hash)
+                )
+            """)
+            conn.commit()
+
+    @staticmethod
+    def _content_hash(content):
+        import hashlib
+
+        normalized = " ".join(
+            str(content or "").split()
+        ).strip().lower()
+
+        return hashlib.sha256(
+            normalized.encode("utf-8")
+        ).hexdigest()
+
+    def suppress_publication(
+        self,
+        publication_id=None,
+        product_id=None,
+        channel=None,
+        content=None,
+        reason="suppressed",
+    ):
+        content_hash = self._content_hash(content)
+
+        if not content_hash and publication_id is not None:
+            with self._connect() as conn:
+                row = conn.execute(
+                    """
+                    SELECT content
+                    FROM publication_records
+                    WHERE id = ?
+                    """,
+                    (publication_id,),
+                ).fetchone()
+
+            if row:
+                content_hash = self._content_hash(row["content"])
+
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO publication_suppressions (
+                    product_id,
+                    channel,
+                    content_hash,
+                    reason,
+                    publication_id
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    product_id,
+                    channel,
+                    content_hash,
+                    reason,
+                    publication_id,
+                ),
+            )
+            conn.commit()
+
+        return {
+            "status": "suppressed",
+            "publication_id": publication_id,
+            "product_id": product_id,
+            "channel": channel,
+            "content_hash": content_hash,
+            "reason": reason,
+        }
+
+    def is_suppressed(
+        self,
+        product_id=None,
+        channel=None,
+        content=None,
+    ):
+        content_hash = self._content_hash(content)
+
+        conditions = []
+        params = []
+
+        if product_id is None:
+            conditions.append("product_id IS NULL")
+        else:
+            conditions.append("(product_id = ? OR product_id IS NULL)")
+            params.append(product_id)
+
+        if channel is None:
+            conditions.append("channel IS NULL")
+        else:
+            conditions.append("(channel = ? OR channel IS NULL)")
+            params.append(channel)
+
+        if content_hash:
+            conditions.append("content_hash = ?")
+            params.append(content_hash)
+
+        if not content_hash:
+            return False
+
+        with self._connect() as conn:
+            row = conn.execute(
+                f"""
+                SELECT id
+                FROM publication_suppressions
+                WHERE {" AND ".join(conditions)}
+                LIMIT 1
+                """,
+                params,
+            ).fetchone()
+
+        return row is not None
+
+    def list_suppressions(self, product_id=None, channel=None):
+        conditions = []
+        params = []
+
+        if product_id is not None:
+            conditions.append("product_id = ?")
+            params.append(product_id)
+
+        if channel is not None:
+            conditions.append("channel = ?")
+            params.append(channel)
+
+        where = (
+            f"WHERE {' AND '.join(conditions)}"
+            if conditions
+            else ""
+        )
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT *
+                FROM publication_suppressions
+                {where}
+                ORDER BY created_at DESC, id DESC
+                """,
+                params,
+            ).fetchall()
+
+        return [dict(row) for row in rows]
 
     def log_activity(
         self,

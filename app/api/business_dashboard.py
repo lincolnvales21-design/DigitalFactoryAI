@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 import sqlite3
 from pathlib import Path
-from app.business.autonomous_factory_loop import autonomous_factory_loop
+from app.business.autonomous_runtime import autonomous_runtime
 from app.business.acquisition_tracker import acquisition_tracker
 from app.business.publication_tracker import publication_tracker
 
@@ -437,7 +437,7 @@ def business_dashboard():
     automatic_spend = 100 if revenue > 1000 else 0
 
     # Estado atual da fábrica
-    factory_state = autonomous_factory_loop.status()
+    factory_state = autonomous_runtime.status()
 
     conn.close()
 
