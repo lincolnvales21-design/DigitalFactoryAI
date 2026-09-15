@@ -2,7 +2,7 @@ from app.business.acquisition_tracker import acquisition_tracker
 from app.payments.service import payment_service
 
 import os
-import sqlite3
+from app.database.database import get_connection
 from pathlib import Path
 from datetime import datetime
 from urllib.request import Request, urlopen
@@ -29,7 +29,7 @@ class CheckoutEngine:
         self.db_path = Path("digitalfactory.db")
 
     def _connect(self):
-        return sqlite3.connect(self.db_path)
+        return get_connection()
 
     def _get_product(self, product_id):
         conn = self._connect()
@@ -90,6 +90,7 @@ class CheckoutEngine:
                 gateway
             )
             VALUES (?, ?, ?, 'pending', ?)
+            RETURNING id
         """, (
             product["id"],
             product["price"],
@@ -97,7 +98,13 @@ class CheckoutEngine:
             gateway,
         ))
 
-        order_id = cursor.lastrowid
+        row = cursor.fetchone()
+        order_id = row[0] if row else None
+
+        if not order_id:
+            conn.rollback()
+            conn.close()
+            raise RuntimeError("Falha ao obter ID do pedido no PostgreSQL")
 
         download_token = secrets.token_urlsafe(32)
         cursor.execute(
@@ -117,7 +124,7 @@ class CheckoutEngine:
                 customer_email,
                 order_id,
             ))
-        except sqlite3.OperationalError:
+        except Exception:
             pass
 
         conn.commit()

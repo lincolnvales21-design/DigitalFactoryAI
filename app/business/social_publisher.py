@@ -260,6 +260,18 @@ class SocialPublisher:
                 "reason": "Conteúdo orgânico vazio.",
             }
 
+        # O tracking_url precisa aparecer na legenda para que o
+        # comprador tenha acesso direto ao checkout e para que a
+        # aquisição continue sendo contabilizada pelo DigitalFactoryAI.
+        if tracking_url and tracking_url not in caption:
+            caption = (
+                f"{caption.rstrip()}\\n\\n"
+                "🛒 Compre o material aqui:\\n"
+                f"{tracking_url}"
+            )
+
+        caption = caption[:2200]
+
         try:
             create_response = requests.post(
                 f"{GRAPH_URL}/me/media",

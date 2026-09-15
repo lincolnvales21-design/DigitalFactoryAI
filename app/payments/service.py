@@ -97,6 +97,7 @@ class PaymentService:
                 paid_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
             """,
             (
                 order_id,
@@ -112,7 +113,13 @@ class PaymentService:
             )
         )
 
-        payment_id = cursor.lastrowid
+        row = cursor.fetchone()
+        payment_id = row[0] if row else None
+
+        if not payment_id:
+            connection.rollback()
+            connection.close()
+            raise RuntimeError("Falha ao obter ID do pagamento no PostgreSQL")
 
         connection.commit()
         connection.close()
@@ -229,6 +236,7 @@ class PaymentService:
                 paid_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
             """,
             (
                 order_id,
@@ -244,7 +252,13 @@ class PaymentService:
             )
         )
 
-        payment_id = cursor.lastrowid
+        row = cursor.fetchone()
+        payment_id = row[0] if row else None
+
+        if not payment_id:
+            connection.rollback()
+            connection.close()
+            raise RuntimeError("Falha ao obter ID do pagamento no PostgreSQL")
 
         # ==========================
         # Atualizar pedido
